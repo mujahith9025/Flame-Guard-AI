@@ -1,4 +1,4 @@
-// Industrial Multi-Camera CCTV Surveillance Center Controller v20.0 (Cloud & Local Browser Webcam Ready)
+// Industrial Multi-Camera CCTV Surveillance Center Controller v21.0 (Chrome Permission Assistance Ready)
 let ws = null;
 let isStreaming = false;
 let soundEnabled = true;
@@ -252,7 +252,7 @@ function closeCamModal() {
 async function startWebSocketStream() {
     if (isStreaming) return;
 
-    // 1. Request Browser Camera Permission
+    // 1. Request Browser Camera Permission with Chrome Permission Assistance
     try {
         localMediaStream = await navigator.mediaDevices.getUserMedia({
             video: {
@@ -265,7 +265,11 @@ async function startWebSocketStream() {
         clientWebcamVideo.srcObject = localMediaStream;
         await clientWebcamVideo.play();
     } catch (err) {
-        alert("Camera Permission Required: Please allow camera access in your browser to start live detection!");
+        if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
+            alert("🔒 CHROME CAMERA BLOCKED:\n\n1. Click the 🔒 Lock icon (left of URL address bar).\n2. Change 'Camera' setting to ALLOW.\n3. Refresh this page and click START MATRIX FEED again!");
+        } else {
+            alert("Camera Access Error: " + err.message + "\n\nPlease ensure your device camera is connected and allowed.");
+        }
         console.error("Camera access error:", err);
         return;
     }
