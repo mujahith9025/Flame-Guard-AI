@@ -1,4 +1,4 @@
-// Industrial Multi-Camera CCTV Surveillance Center Controller v21.0 (Live Viewport Integration Ready)
+// Industrial Multi-Camera CCTV Surveillance Center Controller v22.0 (High-Sensitivity Detection & Modal Video Support)
 let ws = null;
 let isStreaming = false;
 let soundEnabled = true;
@@ -52,6 +52,7 @@ const closeDrawerBtn = document.getElementById("closeDrawerBtn");
 const camModal = document.getElementById("camModal");
 const modalCamTitle = document.getElementById("modalCamTitle");
 const modalCanvas = document.getElementById("modalCanvas");
+const modalWebcamVideo = document.getElementById("modalWebcamVideo");
 
 // Contact Registration Inputs
 const telegramChatInput = document.getElementById("telegramChatInput");
@@ -242,12 +243,24 @@ function updateStatusPopups(hasFire, hazardMessage) {
 // Expand Cam Feed Fullscreen Modal
 function expandCamFeed(camTitle) {
     modalCamTitle.innerText = camTitle;
-    modalCanvas.src = streamCanvas.src || clientWebcamCanvas.toDataURL();
+
+    if (camTitle.includes("CAM 01") && localMediaStream) {
+        modalWebcamVideo.srcObject = localMediaStream;
+        modalWebcamVideo.classList.add("active");
+        modalWebcamVideo.play();
+    } else {
+        modalWebcamVideo.classList.remove("active");
+    }
+
+    modalCanvas.src = streamCanvas.src;
     camModal.classList.remove("hidden");
 }
 
 function closeCamModal() {
     camModal.classList.add("hidden");
+    if (modalWebcamVideo) {
+        modalWebcamVideo.classList.remove("active");
+    }
 }
 
 // Cloud & Local Dual-Engine Camera Stream Controller
@@ -414,6 +427,9 @@ function stopWebSocketStream() {
     }
 
     clientWebcamVideo.classList.remove("active");
+    if (modalWebcamVideo) {
+        modalWebcamVideo.classList.remove("active");
+    }
 
     if (ws) {
         try { ws.close(); } catch (e) {}

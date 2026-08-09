@@ -30,17 +30,17 @@ class FireSmokeDetector:
         "person": (255, 165, 0)   # Orange (BGR)
     }
 
-    # Class-specific confidence thresholds to suppress background/person false positives
+    # Class-specific confidence thresholds for high-sensitivity fire detection
     CLASS_CONF_THRESHOLDS = {
-        "fire": 0.20,   # High sensitivity for fire
-        "smoke": 0.35,  # Higher threshold for smoke to eliminate background/clothing false positives
+        "fire": 0.10,   # Ultra-high sensitivity for flame detection
+        "smoke": 0.25,  # Balanced threshold for smoke
         "person": 0.50
     }
 
     def __init__(
         self,
         model_path: str = "best.pt",
-        conf_threshold: float = 0.20,
+        conf_threshold: float = 0.15,
         iou_threshold: float = 0.45,
         device: str = "cpu",
         alert_cooldown: int = 30
@@ -72,21 +72,21 @@ class FireSmokeDetector:
         self.track_history: Dict[int, Dict[str, float]] = {}
 
     @staticmethod
-    def detect_calibrated_flame_regions(img: cv2.Mat, min_area_pixels: int = 500) -> List[Dict[str, Any]]:
+    def detect_calibrated_flame_regions(img: cv2.Mat, min_area_pixels: int = 250) -> List[Dict[str, Any]]:
         """
-        Calibrated Flame Region Analysis: Detect bright fire/flame regions (Strict Orange/Red hue
-        with high saturation & brightness values). Excludes green/yellow grass fields.
+        Calibrated Flame Region Analysis: Detect bright fire/flame regions (Wide Orange/Red hue
+        with flexible saturation & brightness for screen / real fire flames).
         """
         if img is None:
             return []
 
         hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
 
-        # Strict Fire HSV ranges (Orange / Deep Red + High Saturation & Brightness)
-        lower1 = np.array([0, 120, 165])
-        upper1 = np.array([22, 255, 255])
+        # High-Sensitivity Fire HSV ranges (Orange / Red / Flame Yellow)
+        lower1 = np.array([0, 70, 130])
+        upper1 = np.array([28, 255, 255])
 
-        lower2 = np.array([168, 120, 165])
+        lower2 = np.array([155, 70, 130])
         upper2 = np.array([180, 255, 255])
 
         mask1 = cv2.inRange(hsv, lower1, upper1)
@@ -106,7 +106,7 @@ class FireSmokeDetector:
                 x, y, w, h = cv2.boundingRect(cnt)
                 flame_boxes.append({
                     "class": "fire",
-                    "confidence": 0.85,
+                    "confidence": 0.88,
                     "track_id": None,
                     "growth_rate_pct_sec": 0.0,
                     "bbox": [x, y, x + w, y + h]
@@ -137,7 +137,7 @@ class FireSmokeDetector:
             source=frame,
             tracker="bytetrack.yaml",
             persist=True,
-            conf=min(self.conf_threshold, 0.15),
+            conf=min(self.conf_threshold, 0.10),
             iou=self.iou_threshold,
             device=self.device,
             verbose=False
@@ -210,7 +210,7 @@ class FireSmokeDetector:
             track_id = d.get("track_id")
             growth_rate = d.get("growth_rate_pct_sec", 0.0)
 
-            color = self.CLASS_COLORS.get(label, (0, 255, 0))
+            color = self.CLASS_COLORS.get(label, (0, 0, 255))
             x1, y1, x2, y2 = xyxy
             cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
 
@@ -263,66 +263,16 @@ class FireSmokeDetector:
 
                 self.consecutive_hazard_frames = 0
         else:
-            # Immediately reset consecutive hazard counter when no fire/smoke is present
             self.consecutive_hazard_frames = 0
 
         return frame, detections, fps
-
-    def run_stream(self, source: Any = 0, save_output: str = None, config: Dict[str, Any] = None):
-        """
-        Runs real-time inference loop on webcam feed or video file.
-        """
-        if isinstance(source, str) and source.isdigit():
-            source = int(source)
-
-        cap = cv2.VideoCapture(source)
-        if not cap.isOpened():
-            logger.error(f"Failed to open video source: '{source}'")
-            return
-
-        frame_w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        frame_h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        fps_in = cap.get(cv2.CAP_PROP_FPS) or 30.0
-
-        writer = None
-        if save_output:
-            out_path = Path(save_output)
-            out_path.parent.mkdir(parents=True, exist_ok=True)
-            fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-            writer = cv2.VideoWriter(str(out_path), fourcc, fps_in, (frame_w, frame_h))
-            logger.info(f"Saving annotated video stream to '{out_path}'...")
-
-        logger.info(f"Starting real-time detection stream on '{source}'. Press 'q' or 'ESC' to quit.")
-
-        try:
-            while cap.isOpened():
-                ret, frame = cap.read()
-                if not ret:
-                    break
-
-                annotated_frame, _, fps = self.process_frame(frame, config=config, draw_fps=True)
-
-                if writer:
-                    writer.write(annotated_frame)
-
-                cv2.imshow("🔥 Real-Time Fire & Smoke Detector", annotated_frame)
-
-                key = cv2.waitKey(1) & 0xFF
-                if key == ord('q') or key == 27:
-                    break
-        finally:
-            cap.release()
-            if writer:
-                writer.release()
-            cv2.destroyAllWindows()
-            logger.info("Real-time detection stream stopped.")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Real-Time Fire & Smoke Detector")
     parser.add_argument("--source", type=str, default="0", help="Webcam index (0) or video file path")
     parser.add_argument("--weights", type=str, default="best.pt", help="Path to trained YOLOv8 weights")
-    parser.add_argument("--conf", type=float, default=0.20, help="Confidence threshold")
+    parser.add_argument("--conf", type=float, default=0.15, help="Confidence threshold")
     parser.add_argument("--save-output", type=str, default=None, help="Path to save annotated video output")
 
     args = parser.parse_args()

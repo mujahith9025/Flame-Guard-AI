@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Outfit:wght@500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="/static/style.css?v=21.0">
+    <link rel="stylesheet" href="/static/style.css?v=22.0">
 </head>
 <body class="cctv-theme">
     <div class="cctv-layout-container">
@@ -36,7 +36,7 @@
                 <!-- Live Date & Clock Badge -->
                 <div class="clock-badge">
                     <i class="fa-regular fa-clock"></i>
-                    <span id="liveClockDisplay">2026-08-09 09:10:00</span>
+                    <span id="liveClockDisplay">2026-08-09 09:22:00</span>
                 </div>
 
                 <!-- Compact Sound Toggle -->
@@ -236,8 +236,8 @@
                             <h3><i class="fa-solid fa-sliders"></i> DETECTOR THRESHOLDS</h3>
                             
                             <div class="cctv-form-group">
-                                <label>CONFIDENCE THRESHOLD: <span id="confVal" class="val-mono">0.25</span></label>
-                                <input type="range" id="confSlider" min="0.05" max="1.0" step="0.05" value="0.25">
+                                <label>CONFIDENCE THRESHOLD: <span id="confVal" class="val-mono">0.15</span></label>
+                                <input type="range" id="confSlider" min="0.05" max="1.0" step="0.05" value="0.15">
                             </div>
 
                             <div class="cctv-form-group">
@@ -320,7 +320,8 @@
                 <button class="modal-close-btn" onclick="closeCamModal()"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <div class="modal-viewport">
-                <img id="modalCanvas" src="" alt="Fullscreen Feed">
+                <video id="modalWebcamVideo" autoplay playsinline muted class="modal-video-element"></video>
+                <img id="modalCanvas" src="" alt="Fullscreen Feed" class="modal-overlay-img">
                 <div class="crosshair-overlay">
                     <div class="ch-line h"></div>
                     <div class="ch-line v"></div>
@@ -330,6 +331,6 @@
     </div>
 
     <!-- CCTV App Controller Script -->
-    <script src="/static/app.js?v=21.0"></script>
+    <script src="/static/app.js?v=22.0"></script>
 </body>
 </html>
