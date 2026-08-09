@@ -66,8 +66,11 @@ CONFIG_PATH = Path(PROJECT_ROOT) / "config.yaml"
 
 def load_config():
     if CONFIG_PATH.exists():
-        with open(CONFIG_PATH, "r", encoding="utf-8") as f:
-            return yaml.safe_load(f)
+        try:
+            with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+                return yaml.safe_load(f) or {}
+        except Exception as e:
+            logger.error(f"Error loading config.yaml: {e}")
     return {}
 
 
@@ -141,6 +144,8 @@ async def serve_index():
 
 
 @app.get("/login", response_class=HTMLResponse)
+@app.get("/login.html", response_class=HTMLResponse)
+@app.get("/account", response_class=HTMLResponse)
 async def serve_login():
     login_path = FRONTEND_DIR / "login.html"
     if login_path.exists():
@@ -153,7 +158,15 @@ async def serve_login():
 
 @app.get("/api/status")
 async def get_system_status():
-    detector = get_detector()
+    try:
+        detector = get_detector()
+        model_name = detector.model.model_name if hasattr(detector.model, 'model_name') else "YOLOv8s"
+        conf_thresh = detector.conf_threshold
+    except Exception as e:
+        logger.error(f"Detector initialization exception in status API: {e}")
+        model_name = "YOLOv8s Engine"
+        conf_thresh = 0.20
+
     telegram_cfg = state["config"].get("alerts", {}).get("telegram", {})
     telegram_id = telegram_cfg.get("chat_id", "")
     telegram_name = telegram_cfg.get("user_name", f"User #{telegram_id}" if telegram_id else "Security Officer")
@@ -161,8 +174,8 @@ async def get_system_status():
 
     return {
         "status": "ONLINE",
-        "active_model": detector.model.model_name if hasattr(detector.model, 'model_name') else "YOLOv8s",
-        "confidence_threshold": detector.conf_threshold,
+        "active_model": model_name,
+        "confidence_threshold": conf_thresh,
         "total_fire_alerts": state["total_fire"],
         "total_smoke_alerts": state["total_smoke"],
         "max_growth_rate": round(state["max_growth_rate"], 1),
@@ -190,7 +203,7 @@ async def process_stream_frame(payload: Dict[str, Any]):
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Invalid image format: {e}")
 
-    if frame is None:
+    if frame is None or frame.size == 0:
         raise HTTPException(status_code=400, detail="Frame decode failed.")
 
     detector = get_detector()
@@ -386,8 +399,12 @@ async def update_config(payload: Dict[str, Any]):
         state["config"]["alerts"]["sms"]["to_number"] = str(payload["sms_to_number"]).strip()
         state["config"]["alerts"]["sms"]["enabled"] = True
 
-    with open(CONFIG_PATH, "w", encoding="utf-8") as f:
-        yaml.safe_dump(state["config"], f)
+    # Persist config safely (with error handling for cloud container read-only filesystems if any)
+    try:
+        with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+            yaml.safe_dump(state["config"], f)
+    except Exception as e:
+        logger.warning(f"Could not persist config.yaml to disk: {e}")
 
     return {"status": "SUCCESS", "updated_config": state["config"]}
 
