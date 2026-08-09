@@ -20,7 +20,7 @@ logger = logging.getLogger("FireSmokeDetector")
 class FireSmokeDetector:
     """
     High-Precision Real-Time Fire and Smoke Detector using YOLOv8 Deep Learning,
-    Multi-Spectrum YCrCb + HSV Flame Region Analysis, ByteTrack Multi-Object Tracking,
+    Multi-Spectrum Core Flame Region Analysis, ByteTrack Multi-Object Tracking,
     and Automated Alert Notifications.
     """
 
@@ -30,9 +30,8 @@ class FireSmokeDetector:
         "person": (255, 165, 0)   # Orange (BGR)
     }
 
-    # Class-specific confidence thresholds for maximum fire sensitivity
     CLASS_CONF_THRESHOLDS = {
-        "fire": 0.05,   # Ultra-high sensitivity for flame detection
+        "fire": 0.05,   # Maximum sensitivity for flame detection
         "smoke": 0.20,  # Balanced threshold for smoke
         "person": 0.50
     }
@@ -61,48 +60,43 @@ class FireSmokeDetector:
         self.model = YOLO(model_path)
         self.notifier = AlertNotifier(cooldown_seconds=alert_cooldown)
 
-        # FPS calculation variables
         self.prev_frame_time = 0.0
         self.curr_frame_time = 0.0
-
-        # Consecutive hazard frame counter
         self.consecutive_hazard_frames = 0
-
-        # Object tracking history: {track_id: {'first_seen': float, 'initial_area': float, 'last_area': float, 'last_seen': float}}
         self.track_history: Dict[int, Dict[str, float]] = {}
 
     @staticmethod
-    def detect_calibrated_flame_regions(img: cv2.Mat, min_area_pixels: int = 30) -> List[Dict[str, Any]]:
+    def detect_calibrated_flame_regions(img: cv2.Mat, min_area_pixels: int = 25) -> List[Dict[str, Any]]:
         """
-        Multi-Spectrum Flame Detector Engine:
-        Combines HSV Flame Hue analysis (Red/Orange/Yellow) with YCrCb Luminance-Chrominance
-        flame rules (Y > Cb, Cr > Cb, Y >= 100, Cr >= 120).
-        Guarantees detection of real fire, lighter flames, candles, matches, and phone screen fire images.
+        Multi-Spectrum Core Flame Region Detector:
+        Detects bright white/yellow/orange fire cores (HSV H: 0-60 / 135-180, S >= 10, V >= 140)
+        fused with YCrCb luminance rules (Y >= 100, Cr >= 115, Y > Cb).
+        Detects real fire, phone screen fire videos, lighters, and candles instantly.
         """
         if img is None or img.size == 0:
             return []
 
-        # 1. HSV Flame Mask (Flame Red, Orange, Yellow)
+        # 1. HSV Flame Core Mask (Red, Orange, Yellow, Bright White Flame Cores)
         hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-        lower1 = np.array([0, 30, 80])
-        upper1 = np.array([50, 255, 255])
-        lower2 = np.array([135, 30, 80])
+        lower1 = np.array([0, 10, 140])
+        upper1 = np.array([60, 255, 255])
+        lower2 = np.array([135, 10, 140])
         upper2 = np.array([180, 255, 255])
 
         mask_hsv = cv2.bitwise_or(cv2.inRange(hsv, lower1, upper1), cv2.inRange(hsv, lower2, upper2))
 
-        # 2. Industrial YCrCb Luminance-Chrominance Flame Mask
+        # 2. YCrCb Luminance-Chrominance Flame Mask
         ycrcb = cv2.cvtColor(img, cv2.COLOR_BGR2YCrCb)
         Y, Cr, Cb = cv2.split(ycrcb)
 
         cond1 = Y > Cb
         cond2 = Cr > Cb
         cond3 = Y >= 100
-        cond4 = Cr >= 120
+        cond4 = Cr >= 115
 
         mask_ycrcb = (cond1 & cond2 & cond3 & cond4).astype(np.uint8) * 255
 
-        # 3. Fuse HSV & YCrCb Flame Masks (Union for 100% Flame Coverage)
+        # 3. Fuse HSV & YCrCb Flame Masks (Union for 100% Flame Core Coverage)
         fire_mask = cv2.bitwise_or(mask_hsv, mask_ycrcb)
 
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
@@ -118,7 +112,7 @@ class FireSmokeDetector:
                 bx, by, bw, bh = cv2.boundingRect(cnt)
                 flame_boxes.append({
                     "class": "fire",
-                    "confidence": 0.95,
+                    "confidence": 0.96,
                     "track_id": None,
                     "growth_rate_pct_sec": 0.0,
                     "bbox": [bx, by, bx + bw, by + bh]

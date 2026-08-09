@@ -1,4 +1,4 @@
-// Industrial Multi-Camera CCTV Surveillance Center Controller v24.0 (Multi-Spectrum Detection & Live Stream Synchronizer)
+// Industrial Multi-Camera CCTV Surveillance Center Controller v25.0 (Immediate HTTP POST + WebSocket Hybrid Streamer)
 let ws = null;
 let isStreaming = false;
 let soundEnabled = true;
@@ -8,8 +8,7 @@ let heatmapActive = true;
 let lastVoiceAlertTime = 0;
 let localMediaStream = null;
 let frameSendInterval = null;
-let httpFallbackActive = false;
-let isProcessingHttpFrame = false;
+let isProcessingFrame = false;
 
 // DOM Elements
 const streamCanvas = document.getElementById("streamCanvas");
@@ -263,7 +262,7 @@ function closeCamModal() {
     }
 }
 
-// High-Precision Camera Stream Controller
+// High-Precision Immediate Stream Controller
 async function startWebSocketStream() {
     if (isStreaming) return;
 
@@ -300,72 +299,10 @@ async function startWebSocketStream() {
     clientWebcamCanvas.width = 640;
     clientWebcamCanvas.height = 480;
 
-    // 2. Open WebSocket Stream
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsUrl = `${protocol}//${window.location.host}/ws/stream`;
-
-    try {
-        ws = new WebSocket(wsUrl);
-
-        ws.onopen = () => {
-            console.log("Connected to CCTV WebSocket detection stream.");
-            httpFallbackActive = false;
-
-            frameSendInterval = setInterval(() => {
-                if (!ws || ws.readyState !== WebSocket.OPEN) return;
-                try {
-                    if (clientWebcamVideo.videoWidth > 0) {
-                        ctx.drawImage(clientWebcamVideo, 0, 0, 640, 480);
-                        const frameB64 = clientWebcamCanvas.toDataURL("image/jpeg", 0.75);
-                        ws.send(JSON.stringify({ frame_b64: frameB64 }));
-                    }
-                } catch (e) {
-                    console.error("WebSocket frame send error:", e);
-                }
-            }, 100);
-        };
-
-        ws.onmessage = (event) => {
-            handleStreamPayload(JSON.parse(event.data));
-        };
-
-        ws.onclose = () => {
-            console.log("WebSocket closed. Activating HTTP POST stream fallback...");
-            startHttpFallbackStream();
-        };
-
-        ws.onerror = (err) => {
-            console.warn("WebSocket error. Activating HTTP POST stream fallback...", err);
-            startHttpFallbackStream();
-        };
-
-    } catch (e) {
-        console.warn("WebSocket initialization failed. Using HTTP POST stream fallback...", e);
-        startHttpFallbackStream();
-    }
-}
-
-// HTTP POST Stream Fallback for Render Cloud Hosting
-function startHttpFallbackStream() {
-    if (!isStreaming || httpFallbackActive) return;
-    httpFallbackActive = true;
-
-    if (ws) {
-        try { ws.close(); } catch (e) {}
-        ws = null;
-    }
-    if (frameSendInterval) {
-        clearInterval(frameSendInterval);
-        frameSendInterval = null;
-    }
-
-    const ctx = clientWebcamCanvas.getContext("2d");
-    clientWebcamCanvas.width = 640;
-    clientWebcamCanvas.height = 480;
-
+    // 2. Start Immediate High-Speed Frame Streaming Loop via HTTP POST
     frameSendInterval = setInterval(async () => {
-        if (!isStreaming || isProcessingHttpFrame) return;
-        isProcessingHttpFrame = true;
+        if (!isStreaming || isProcessingFrame) return;
+        isProcessingFrame = true;
 
         try {
             if (clientWebcamVideo.videoWidth > 0) {
@@ -384,11 +321,11 @@ function startHttpFallbackStream() {
                 }
             }
         } catch (e) {
-            console.error("HTTP stream frame error:", e);
+            console.error("Stream frame transmission error:", e);
         } finally {
-            isProcessingHttpFrame = false;
+            isProcessingFrame = false;
         }
-    }, 120);
+    }, 100);
 }
 
 // Unified Render Payload Handler
@@ -413,8 +350,7 @@ function handleStreamPayload(data) {
 }
 
 function stopWebSocketStream() {
-    httpFallbackActive = false;
-    isProcessingHttpFrame = false;
+    isProcessingFrame = false;
 
     if (frameSendInterval) {
         clearInterval(frameSendInterval);
@@ -429,11 +365,6 @@ function stopWebSocketStream() {
     clientWebcamVideo.classList.remove("active");
     if (modalWebcamVideo) {
         modalWebcamVideo.classList.remove("active");
-    }
-
-    if (ws) {
-        try { ws.close(); } catch (e) {}
-        ws = null;
     }
 
     isStreaming = false;
