@@ -1,19 +1,19 @@
 FROM python:3.10-slim
 
-# Install System Dependencies for OpenCV Headless
+# Install System Dependencies for Headless Linux
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libgl1-mesa-glx \
+    libgl1 \
     libglib2.0-0 \
     libsm6 \
     libxext6 \
-    libxrender-dev \
+    ffmpeg \
     gcc \
     python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Copy Requirements and Install Lightweight CPU Dependencies
+# Copy Requirements and Install Lightweight CPU PyTorch & Packages
 COPY requirements.txt .
 RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu
 RUN pip install --no-cache-dir -r requirements.txt
