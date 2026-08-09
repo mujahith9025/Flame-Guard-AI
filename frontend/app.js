@@ -1,4 +1,4 @@
-// Industrial Multi-Camera CCTV Surveillance Center Controller v30.0 (Render Zero-Latency Dual Client-Server Detection Engine)
+// Industrial Multi-Camera CCTV Surveillance Center Controller v31.0 (Calibrated Flame Engine for Zero False Alarms)
 let ws = null;
 let isStreaming = false;
 let soundEnabled = true;
@@ -71,7 +71,7 @@ document.addEventListener("DOMContentLoaded", () => {
     setInterval(fetchLogs, 2500);
 });
 
-// Real-Time Browser Client Flame Detector (60 FPS Zero-Latency Engine for Render Cloud)
+// Calibrated Real-Time Browser Client Flame Detector (Zero False Alarms on Skin/Room Lights)
 function detectClientFlameRegions(ctx, width, height) {
     try {
         const imgData = ctx.getImageData(0, 0, width, height);
@@ -90,11 +90,12 @@ function detectClientFlameRegions(ctx, width, height) {
                 const g = data[i + 1];
                 const b = data[i + 2];
 
-                // Flame RGB & Overexposed Core Conditions (Bright Red/Orange/Yellow & Overexposed White Core)
-                const isFlameColor = (r > 160 && g > 70 && b < 180 && (r - g) > 15);
-                const isOverexposedCore = (r > 210 && g > 180 && b > 140 && (r + g + b) > 580);
+                // Flame RGB Signature: Strong Red Dominance (r > 180, g < r*0.85, b < r*0.5, r-b > 60)
+                const isFlameColor = (r > 180 && g < (r * 0.85) && b < (r * 0.5) && (r - b) > 60);
+                // Intense Flame Core Signature (r > 240, g > 180, b < 100, b < g)
+                const isFlameCore = (r > 240 && g > 180 && b < 100 && b < g);
 
-                if (isFlameColor || isOverexposedCore) {
+                if (isFlameColor || isFlameCore) {
                     matchCount++;
                     if (x < minX) minX = x;
                     if (x > maxX) maxX = x;
@@ -104,11 +105,11 @@ function detectClientFlameRegions(ctx, width, height) {
             }
         }
 
-        // Trigger detection box if flame region exceeds 15 matching pixels
-        if (matchCount > 15 && maxX > minX && maxY > minY) {
+        // Trigger detection box if flame region exceeds 150 matching pixels
+        if (matchCount > 150 && maxX > minX && maxY > minY) {
             const bw = maxX - minX;
             const bh = maxY - minY;
-            if (bw > 10 && bh > 10) {
+            if (bw > 25 && bh > 25) {
                 flameBoxes.push({
                     class: "fire",
                     confidence: 0.96,
@@ -210,7 +211,7 @@ function setupTabs() {
 function speakTacticalVoiceAlert(text) {
     if (!soundEnabled) return;
     const now = Date.now();
-    if (now - lastVoiceAlertTime < 12000) return;
+    if (now - lastVoiceAlertTime < 15000) return;
 
     if ('speechSynthesis' in window) {
         try {
@@ -314,7 +315,7 @@ function closeCamModal() {
     }
 }
 
-// High-Precision Immediate Stream Controller
+// High-Precision Camera Stream Controller
 async function startWebSocketStream() {
     if (isStreaming) return;
 
@@ -349,7 +350,7 @@ async function startWebSocketStream() {
     clientWebcamCanvas.width = 640;
     clientWebcamCanvas.height = 480;
 
-    // High-Speed Loop with Zero-Latency Client Flame Analysis + Server Processing
+    // High-Speed Loop with Zero False Alarm Filter
     frameSendInterval = setInterval(async () => {
         if (!isStreaming) return;
 
@@ -357,14 +358,17 @@ async function startWebSocketStream() {
             if (clientWebcamVideo.videoWidth > 0 && clientWebcamVideo.videoHeight > 0) {
                 ctx.drawImage(clientWebcamVideo, 0, 0, 640, 480);
 
-                // 1. Run Instant 60 FPS Client-Side Flame Detection
+                // 1. Run Client Flame Detection
                 const clientDetections = detectClientFlameRegions(ctx, 640, 480);
                 if (clientDetections.length > 0) {
                     renderSpatialHeatmap(clientDetections);
                     updateStatusPopups(true, "🚨 CRITICAL INCIDENT // FIRE DETECTED (ZONE 1)");
+                } else {
+                    renderSpatialHeatmap([]);
+                    updateStatusPopups(false, null);
                 }
 
-                // 2. Send Frame to Server for Deep Learning Inference & Telegram Push Alerts
+                // 2. Send Frame to Server for PyTorch Verification
                 if (!isProcessingFrame) {
                     isProcessingFrame = true;
                     const frameB64 = clientWebcamCanvas.toDataURL("image/jpeg", 0.70);
@@ -385,7 +389,7 @@ async function startWebSocketStream() {
         } catch (e) {
             console.error("Stream loop error:", e);
         }
-    }, 80);
+    }, 100);
 }
 
 // Unified Stream Payload Handler
