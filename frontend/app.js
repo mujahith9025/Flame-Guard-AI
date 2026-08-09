@@ -1,4 +1,4 @@
-// Industrial Multi-Camera CCTV Surveillance Center Controller v31.0 (Calibrated Flame Engine for Zero False Alarms)
+// Industrial Multi-Camera CCTV Surveillance Center Controller v32.0 (High-Contrast Real-Time Bounding Box Renderer)
 let ws = null;
 let isStreaming = false;
 let soundEnabled = true;
@@ -71,7 +71,7 @@ document.addEventListener("DOMContentLoaded", () => {
     setInterval(fetchLogs, 2500);
 });
 
-// Calibrated Real-Time Browser Client Flame Detector (Zero False Alarms on Skin/Room Lights)
+// Calibrated Real-Time Browser Client Flame Detector
 function detectClientFlameRegions(ctx, width, height) {
     try {
         const imgData = ctx.getImageData(0, 0, width, height);
@@ -81,7 +81,6 @@ function detectClientFlameRegions(ctx, width, height) {
         let minX = width, minY = height, maxX = 0, maxY = 0;
         let matchCount = 0;
 
-        // Process grid sample for 60 FPS performance
         const step = 4;
         for (let y = 0; y < height; y += step) {
             for (let x = 0; x < width; x += step) {
@@ -90,9 +89,7 @@ function detectClientFlameRegions(ctx, width, height) {
                 const g = data[i + 1];
                 const b = data[i + 2];
 
-                // Flame RGB Signature: Strong Red Dominance (r > 180, g < r*0.85, b < r*0.5, r-b > 60)
                 const isFlameColor = (r > 180 && g < (r * 0.85) && b < (r * 0.5) && (r - b) > 60);
-                // Intense Flame Core Signature (r > 240, g > 180, b < 100, b < g)
                 const isFlameCore = (r > 240 && g > 180 && b < 100 && b < g);
 
                 if (isFlameColor || isFlameCore) {
@@ -105,7 +102,6 @@ function detectClientFlameRegions(ctx, width, height) {
             }
         }
 
-        // Trigger detection box if flame region exceeds 150 matching pixels
         if (matchCount > 150 && maxX > minX && maxY > minY) {
             const bw = maxX - minX;
             const bh = maxY - minY;
@@ -122,6 +118,56 @@ function detectClientFlameRegions(ctx, width, height) {
     } catch (e) {
         return [];
     }
+}
+
+// High-Contrast Real-Time Bounding Box Renderer
+function renderBoundingBoxes(detections) {
+    const canvas = document.getElementById("boxOverlayCanvas");
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+
+    canvas.width = canvas.clientWidth || 640;
+    canvas.height = canvas.clientHeight || 480;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    if (!detections || detections.length === 0) return;
+
+    const scaleX = canvas.width / 640;
+    const scaleY = canvas.height / 480;
+
+    detections.forEach(d => {
+        if (!d.bbox) return;
+        const [x1, y1, x2, y2] = d.bbox;
+        const bx = x1 * scaleX;
+        const by = y1 * scaleY;
+        const bw = (x2 - x1) * scaleX;
+        const bh = (y2 - y1) * scaleY;
+
+        const isFire = d.class.includes("fire");
+        const strokeColor = isFire ? "#ff003c" : "#00f0ff";
+        const labelText = `${d.class.toUpperCase()}: ${(d.confidence * 100).toFixed(1)}%`;
+
+        // 1. Draw Glowing Outer Rectangle
+        ctx.strokeStyle = strokeColor;
+        ctx.lineWidth = 3;
+        ctx.shadowColor = strokeColor;
+        ctx.shadowBlur = 10;
+        ctx.strokeRect(bx, by, bw, bh);
+
+        // Reset shadow for text label
+        ctx.shadowBlur = 0;
+
+        // 2. Draw Filled Label Box & Header Text
+        ctx.font = "bold 14px Outfit, Inter, sans-serif";
+        const textWidth = ctx.measureText(labelText).width;
+        
+        ctx.fillStyle = strokeColor;
+        ctx.fillRect(bx, Math.max(0, by - 24), textWidth + 12, 24);
+
+        ctx.fillStyle = "#ffffff";
+        ctx.fillText(labelText, bx + 6, Math.max(16, by - 7));
+    });
 }
 
 // Spatial Heatmap Overlay Renderer
@@ -350,7 +396,7 @@ async function startWebSocketStream() {
     clientWebcamCanvas.width = 640;
     clientWebcamCanvas.height = 480;
 
-    // High-Speed Loop with Zero False Alarm Filter
+    // High-Speed Loop with Real-Time Bounding Box Rendering
     frameSendInterval = setInterval(async () => {
         if (!isStreaming) return;
 
@@ -358,17 +404,19 @@ async function startWebSocketStream() {
             if (clientWebcamVideo.videoWidth > 0 && clientWebcamVideo.videoHeight > 0) {
                 ctx.drawImage(clientWebcamVideo, 0, 0, 640, 480);
 
-                // 1. Run Client Flame Detection
+                // 1. Run Real-Time Client Flame Detection & Draw Red Bounding Boxes
                 const clientDetections = detectClientFlameRegions(ctx, 640, 480);
                 if (clientDetections.length > 0) {
+                    renderBoundingBoxes(clientDetections);
                     renderSpatialHeatmap(clientDetections);
                     updateStatusPopups(true, "🚨 CRITICAL INCIDENT // FIRE DETECTED (ZONE 1)");
                 } else {
+                    renderBoundingBoxes([]);
                     renderSpatialHeatmap([]);
                     updateStatusPopups(false, null);
                 }
 
-                // 2. Send Frame to Server for PyTorch Verification
+                // 2. Send Frame to Server for PyTorch Verification & Telegram Push
                 if (!isProcessingFrame) {
                     isProcessingFrame = true;
                     const frameB64 = clientWebcamCanvas.toDataURL("image/jpeg", 0.70);
@@ -409,7 +457,8 @@ function handleStreamPayload(data) {
         consecutiveBadge.innerText = `CONSECUTIVE FRAMES: ${data.consecutive_frames}/5`;
     }
 
-    if (data.has_fire) {
+    if (data.has_fire && data.detections && data.detections.length > 0) {
+        renderBoundingBoxes(data.detections);
         renderSpatialHeatmap(data.detections);
         updateStatusPopups(true, data.status_message);
     }
@@ -439,6 +488,7 @@ function stopWebSocketStream() {
     stopStreamBtn.disabled = true;
     metricFps.innerText = `0.0 FPS`;
     streamCanvas.src = "";
+    renderBoundingBoxes([]);
     renderSpatialHeatmap([]);
     updateStatusPopups(false, null);
 }
