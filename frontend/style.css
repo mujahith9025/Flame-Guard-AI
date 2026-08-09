@@ -733,9 +733,9 @@ body.login-body {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    z-index: 5;
+    z-index: 10;
     pointer-events: none;
-    opacity: 0.95;
+    opacity: 1.0;
     transition: filter 0.3s ease;
 }
 
