@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Outfit:wght@500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="/static/style.css?v=16.0">
+    <link rel="stylesheet" href="/static/style.css?v=20.0">
 </head>
 <body class="cctv-theme">
     <div class="cctv-layout-container">
@@ -36,10 +36,10 @@
                 <!-- Live Date & Clock Badge -->
                 <div class="clock-badge">
                     <i class="fa-regular fa-clock"></i>
-                    <span id="liveClockDisplay">2026-08-08 20:54:35</span>
+                    <span id="liveClockDisplay">2026-08-09 09:00:00</span>
                 </div>
 
-                <!-- Compact Sound Toggle (Icon + ON/OFF) -->
+                <!-- Compact Sound Toggle -->
                 <button class="cctv-btn-toggle" id="audioToggleBtn">
                     <i class="fa-solid fa-volume-high" id="audioIcon"></i>
                     <span id="audioText">ON</span>
@@ -255,7 +255,7 @@
 
                             <div class="cctv-form-group">
                                 <label><i class="fa-brands fa-telegram text-cyan"></i> TELEGRAM CHAT ID (INSTANT PHONE PUSH):</label>
-                                <input type="text" id="telegramChatInput" placeholder="e.g. 5730957885" value="5730957885">
+                                <input type="text" id="telegramChatInput" placeholder="e.g. 8507631249" value="8507631249">
                                 <small class="text-muted">Get Chat ID from @userinfobot on Telegram</small>
                             </div>
 
@@ -274,6 +274,10 @@
             </section>
         </main>
     </div>
+
+    <!-- Hidden Video & Canvas for Browser Client Webcam Capture -->
+    <video id="clientWebcamVideo" autoplay playsinline muted style="display:none;"></video>
+    <canvas id="clientWebcamCanvas" style="display:none;"></canvas>
 
     <!-- Floating Event Log Slide-Out Drawer Panel (Right to Left Slide) -->
     <aside class="cctv-drawer-panel" id="logDrawerPanel">
@@ -325,6 +329,6 @@
     </div>
 
     <!-- CCTV App Controller Script -->
-    <script src="/static/app.js?v=16.0"></script>
+    <script src="/static/app.js?v=20.0"></script>
 </body>
 </html>

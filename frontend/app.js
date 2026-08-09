@@ -1,4 +1,4 @@
-// Industrial Multi-Camera CCTV Surveillance Center Controller v16.0
+// Industrial Multi-Camera CCTV Surveillance Center Controller v20.0 (Cloud & Local Browser Webcam Ready)
 let ws = null;
 let isStreaming = false;
 let soundEnabled = true;
@@ -6,6 +6,8 @@ let audioCtx = null;
 let thermalPaletteActive = false;
 let heatmapActive = true;
 let lastVoiceAlertTime = 0;
+let localMediaStream = null;
+let frameSendInterval = null;
 
 // DOM Elements
 const streamCanvas = document.getElementById("streamCanvas");
@@ -26,6 +28,10 @@ const bannerText = document.getElementById("bannerText");
 const audioToggleBtn = document.getElementById("audioToggleBtn");
 const audioIcon = document.getElementById("audioIcon");
 const audioText = document.getElementById("audioText");
+
+// Client Webcam Video & Canvas
+const clientWebcamVideo = document.getElementById("clientWebcamVideo");
+const clientWebcamCanvas = document.getElementById("clientWebcamCanvas");
 
 // CCTV Metric Elements
 const metricModel = document.getElementById("metricModel");
@@ -242,10 +248,29 @@ function closeCamModal() {
     camModal.classList.add("hidden");
 }
 
-// WebSocket Stream Controller
-function startWebSocketStream() {
+// Cloud & Local Compatible WebSocket Stream Controller (Captures Client Browser Camera)
+async function startWebSocketStream() {
     if (isStreaming) return;
 
+    // 1. Request Browser Camera Permission
+    try {
+        localMediaStream = await navigator.mediaDevices.getUserMedia({
+            video: {
+                width: { ideal: 640 },
+                height: { ideal: 480 },
+                facingMode: "user"
+            },
+            audio: false
+        });
+        clientWebcamVideo.srcObject = localMediaStream;
+        await clientWebcamVideo.play();
+    } catch (err) {
+        alert("Camera Permission Required: Please allow camera access in your browser to start live detection!");
+        console.error("Camera access error:", err);
+        return;
+    }
+
+    // 2. Open WebSocket connection to FastAPI server
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const wsUrl = `${protocol}//${window.location.host}/ws/stream`;
 
@@ -257,6 +282,22 @@ function startWebSocketStream() {
         streamPlaceholder.classList.add("hidden");
         startStreamBtn.disabled = true;
         stopStreamBtn.disabled = false;
+
+        // 3. Start sending client webcam frames to server at ~20 FPS
+        const ctx = clientWebcamCanvas.getContext("2d");
+        clientWebcamCanvas.width = 640;
+        clientWebcamCanvas.height = 480;
+
+        frameSendInterval = setInterval(() => {
+            if (!ws || ws.readyState !== WebSocket.OPEN) return;
+            try {
+                ctx.drawImage(clientWebcamVideo, 0, 0, 640, 480);
+                const frameB64 = clientWebcamCanvas.toDataURL("image/jpeg", 0.65);
+                ws.send(JSON.stringify({ frame_b64: frameB64 }));
+            } catch (e) {
+                console.error("Frame capture error:", e);
+            }
+        }, 50);
     };
 
     ws.onmessage = (event) => {
@@ -298,10 +339,21 @@ function startWebSocketStream() {
 }
 
 function stopWebSocketStream() {
+    if (frameSendInterval) {
+        clearInterval(frameSendInterval);
+        frameSendInterval = null;
+    }
+
+    if (localMediaStream) {
+        localMediaStream.getTracks().forEach(track => track.stop());
+        localMediaStream = null;
+    }
+
     if (ws) {
         ws.close();
         ws = null;
     }
+
     isStreaming = false;
     streamPlaceholder.classList.remove("hidden");
     startStreamBtn.disabled = false;
@@ -346,7 +398,7 @@ function setupEventListeners() {
         }
     });
 
-    // Compact Sound Toggle Listener (Icon + ON / OFF)
+    // Compact Sound Toggle Listener
     audioToggleBtn.addEventListener("click", () => {
         soundEnabled = !soundEnabled;
         if (soundEnabled) {

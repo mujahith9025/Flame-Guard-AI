@@ -258,7 +258,6 @@ async def test_telegram_push(payload: Dict[str, Any]):
         f"⏰ *Timestamp:* {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
     )
 
-    # 1. Primary: Send fast Telegram text notification
     url_msg = f"https://api.telegram.org/bot{bot_token}/sendMessage"
     try:
         resp = requests.post(
@@ -311,7 +310,6 @@ async def update_config(payload: Dict[str, Any]):
     if "consecutive_frames_threshold" in payload:
         state["config"]["alerts"]["consecutive_frames_threshold"] = int(payload["consecutive_frames_threshold"])
 
-    # Update Telegram Chat ID, User Name & Bot Token dynamically
     if "telegram_chat_id" in payload or "telegram_user_name" in payload:
         if "telegram" not in state["config"]["alerts"]:
             state["config"]["alerts"]["telegram"] = {}
@@ -319,7 +317,6 @@ async def update_config(payload: Dict[str, Any]):
             chat_id_val = str(payload["telegram_chat_id"]).strip()
             state["config"]["alerts"]["telegram"]["chat_id"] = chat_id_val
 
-            # Default Name Fallback if name is empty
             raw_name = str(payload.get("telegram_user_name", "")).strip()
             user_name_val = raw_name if raw_name else f"User #{chat_id_val}"
             state["config"]["alerts"]["telegram"]["user_name"] = user_name_val
@@ -332,7 +329,6 @@ async def update_config(payload: Dict[str, Any]):
         state["config"]["alerts"]["sms"]["to_number"] = str(payload["sms_to_number"]).strip()
         state["config"]["alerts"]["sms"]["enabled"] = True
 
-    # Persist config changes to config.yaml
     with open(CONFIG_PATH, "w", encoding="utf-8") as f:
         yaml.safe_dump(state["config"], f)
 
@@ -341,19 +337,43 @@ async def update_config(payload: Dict[str, Any]):
 
 @app.websocket("/ws/stream")
 async def websocket_stream_endpoint(websocket: WebSocket):
+    """
+    Real-Time WebSocket Detection Stream.
+    Supports receiving live webcam frames directly from the browser client (Cloud & Render compatible).
+    Fallback to local hardware VideoCapture(0) if running locally without browser frames.
+    """
     await websocket.accept()
     logger.info("WebSocket client connected to live detection stream.")
 
     detector = get_detector()
-    cap = cv2.VideoCapture(0)
+    cap = None
 
     try:
         while True:
-            ret, frame = cap.read()
-            if not ret:
-                await asyncio.sleep(0.03)
-                continue
+            # 1. Receive client payload over WebSocket
+            raw_msg = await websocket.receive_text()
+            data = json.loads(raw_msg)
 
+            frame = None
+            if "frame_b64" in data and data["frame_b64"]:
+                try:
+                    b64_str = data["frame_b64"].split(",")[1] if "," in data["frame_b64"] else data["frame_b64"]
+                    img_bytes = base64.b64decode(b64_str)
+                    nparr = np.frombuffer(img_bytes, np.uint8)
+                    frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+                except Exception as b64_err:
+                    logger.error(f"Error decoding client frame: {b64_err}")
+
+            # 2. Local fallback if no client frame received
+            if frame is None:
+                if cap is None:
+                    cap = cv2.VideoCapture(0)
+                ret, frame = cap.read()
+                if not ret or frame is None:
+                    await asyncio.sleep(0.05)
+                    continue
+
+            # 3. Process frame with YOLOv8 + ByteTrack
             annotated_frame, detections, fps = detector.process_frame(
                 frame, config=state["config"], draw_fps=True
             )
@@ -369,13 +389,13 @@ async def websocket_stream_endpoint(websocket: WebSocket):
                     log_hazard(
                         hazard_type=d["class"],
                         confidence=d["confidence"],
-                        source="Websocket Stream",
+                        source="Live CCTV Matrix Stream",
                         frame_count=detector.consecutive_hazard_frames,
                         track_id=d.get("track_id"),
                         growth_rate=d.get("growth_rate_pct_sec", 0.0)
                     )
 
-            # Encode frame to JPEG
+            # 4. Encode annotated frame to JPEG base64 and reply to client
             _, buffer = cv2.imencode(".jpg", annotated_frame, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
             b64_frame = base64.b64encode(buffer).decode("utf-8")
 
@@ -390,13 +410,15 @@ async def websocket_stream_endpoint(websocket: WebSocket):
             }
 
             await websocket.send_text(json.dumps(payload))
-            await asyncio.sleep(0.03)
+            await asyncio.sleep(0.01)
+
     except WebSocketDisconnect:
         logger.info("WebSocket client disconnected.")
     except Exception as e:
         logger.error(f"WebSocket streaming error: {e}")
     finally:
-        cap.release()
+        if cap is not None:
+            cap.release()
 
 
 if __name__ == "__main__":
