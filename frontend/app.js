@@ -1,4 +1,4 @@
-// Industrial Multi-Camera CCTV Surveillance Center Controller v21.0 (Chrome Permission Assistance Ready)
+// Industrial Multi-Camera CCTV Surveillance Center Controller v22.0 (Dual WebSocket + HTTP POST Cloud Stream Engine)
 let ws = null;
 let isStreaming = false;
 let soundEnabled = true;
@@ -8,6 +8,8 @@ let heatmapActive = true;
 let lastVoiceAlertTime = 0;
 let localMediaStream = null;
 let frameSendInterval = null;
+let httpFallbackActive = false;
+let isProcessingHttpFrame = false;
 
 // DOM Elements
 const streamCanvas = document.getElementById("streamCanvas");
@@ -85,8 +87,8 @@ function renderSpatialHeatmap(detections) {
     detections.forEach(d => {
         if (!d.bbox) return;
         const [x1, y1, x2, y2] = d.bbox;
-        const cx = (x1 + x2) / 2 * (canvas.width / 640);
-        const cy = (y1 + y2) / 2 * (canvas.height / 480);
+        const cx = (x1 + x2) / 2 * (canvas.width / 480);
+        const cy = (y1 + y2) / 2 * (canvas.height / 360);
         const radius = Math.max((x2 - x1), (y2 - y1)) * 0.8;
 
         const grad = ctx.createRadialGradient(cx, cy, 5, cx, cy, radius);
@@ -248,16 +250,16 @@ function closeCamModal() {
     camModal.classList.add("hidden");
 }
 
-// Cloud & Local Compatible WebSocket Stream Controller (Captures Client Browser Camera)
+// Cloud & Local Dual-Engine Camera Stream Controller
 async function startWebSocketStream() {
     if (isStreaming) return;
 
-    // 1. Request Browser Camera Permission with Chrome Permission Assistance
+    // 1. Request Browser Camera Access
     try {
         localMediaStream = await navigator.mediaDevices.getUserMedia({
             video: {
-                width: { ideal: 640 },
-                height: { ideal: 480 },
+                width: { ideal: 480 },
+                height: { ideal: 360 },
                 facingMode: "user"
             },
             audio: false
@@ -274,75 +276,128 @@ async function startWebSocketStream() {
         return;
     }
 
-    // 2. Open WebSocket connection to FastAPI server
+    isStreaming = true;
+    streamPlaceholder.classList.add("hidden");
+    startStreamBtn.disabled = true;
+    stopStreamBtn.disabled = false;
+
+    // Canvas configuration (Optimized 480x360 for high-speed cloud throughput)
+    const ctx = clientWebcamCanvas.getContext("2d");
+    clientWebcamCanvas.width = 480;
+    clientWebcamCanvas.height = 360;
+
+    // 2. Open WebSocket Stream
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const wsUrl = `${protocol}//${window.location.host}/ws/stream`;
 
-    ws = new WebSocket(wsUrl);
+    try {
+        ws = new WebSocket(wsUrl);
 
-    ws.onopen = () => {
-        console.log("Connected to CCTV WebSocket detection stream.");
-        isStreaming = true;
-        streamPlaceholder.classList.add("hidden");
-        startStreamBtn.disabled = true;
-        stopStreamBtn.disabled = false;
+        ws.onopen = () => {
+            console.log("Connected to CCTV WebSocket detection stream.");
+            httpFallbackActive = false;
 
-        // 3. Start sending client webcam frames to server at ~20 FPS
-        const ctx = clientWebcamCanvas.getContext("2d");
-        clientWebcamCanvas.width = 640;
-        clientWebcamCanvas.height = 480;
-
-        frameSendInterval = setInterval(() => {
-            if (!ws || ws.readyState !== WebSocket.OPEN) return;
-            try {
-                ctx.drawImage(clientWebcamVideo, 0, 0, 640, 480);
-                const frameB64 = clientWebcamCanvas.toDataURL("image/jpeg", 0.65);
-                ws.send(JSON.stringify({ frame_b64: frameB64 }));
-            } catch (e) {
-                console.error("Frame capture error:", e);
-            }
-        }, 50);
-    };
-
-    ws.onmessage = (event) => {
-        try {
-            const data = JSON.parse(event.data);
-
-            if (data.frame_b64) {
-                streamCanvas.src = data.frame_b64;
-                if (!camModal.classList.contains("hidden")) {
-                    modalCanvas.src = data.frame_b64;
+            frameSendInterval = setInterval(() => {
+                if (!ws || ws.readyState !== WebSocket.OPEN) return;
+                try {
+                    ctx.drawImage(clientWebcamVideo, 0, 0, 480, 360);
+                    const frameB64 = clientWebcamCanvas.toDataURL("image/jpeg", 0.45);
+                    ws.send(JSON.stringify({ frame_b64: frameB64 }));
+                } catch (e) {
+                    console.error("WebSocket frame send error:", e);
                 }
+            }, 120);
+        };
+
+        ws.onmessage = (event) => {
+            handleStreamPayload(JSON.parse(event.data));
+        };
+
+        ws.onclose = () => {
+            console.log("WebSocket closed. Activating HTTP POST stream fallback...");
+            startHttpFallbackStream();
+        };
+
+        ws.onerror = (err) => {
+            console.warn("WebSocket error. Activating HTTP POST stream fallback...", err);
+            startHttpFallbackStream();
+        };
+
+    } catch (e) {
+        console.warn("WebSocket initialization failed. Using HTTP POST stream fallback...", e);
+        startHttpFallbackStream();
+    }
+}
+
+// HTTP POST Stream Fallback for Render Cloud Hosting
+function startHttpFallbackStream() {
+    if (!isStreaming || httpFallbackActive) return;
+    httpFallbackActive = true;
+
+    if (ws) {
+        try { ws.close(); } catch (e) {}
+        ws = null;
+    }
+    if (frameSendInterval) {
+        clearInterval(frameSendInterval);
+        frameSendInterval = null;
+    }
+
+    const ctx = clientWebcamCanvas.getContext("2d");
+    clientWebcamCanvas.width = 480;
+    clientWebcamCanvas.height = 360;
+
+    frameSendInterval = setInterval(async () => {
+        if (!isStreaming || isProcessingHttpFrame) return;
+        isProcessingHttpFrame = true;
+
+        try {
+            ctx.drawImage(clientWebcamVideo, 0, 0, 480, 360);
+            const frameB64 = clientWebcamCanvas.toDataURL("image/jpeg", 0.45);
+
+            const resp = await fetch("/api/stream-frame", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ frame_b64: frameB64 })
+            });
+
+            if (resp.ok) {
+                const data = await resp.json();
+                handleStreamPayload(data);
             }
-
-            if (data.fps !== undefined) {
-                metricFps.innerText = `${data.fps} FPS`;
-            }
-
-            if (data.consecutive_frames !== undefined) {
-                consecutiveBadge.innerText = `CONSECUTIVE FRAMES: ${data.consecutive_frames}/5`;
-            }
-
-            renderSpatialHeatmap(data.detections);
-            updateStatusPopups(data.has_fire, data.status_message);
-
         } catch (e) {
-            console.error("Frame parse error:", e);
+            console.error("HTTP stream frame error:", e);
+        } finally {
+            isProcessingHttpFrame = false;
         }
-    };
+    }, 150);
+}
 
-    ws.onclose = () => {
-        console.log("WebSocket stream closed.");
-        stopWebSocketStream();
-    };
+// Unified Render Payload Handler
+function handleStreamPayload(data) {
+    if (data.frame_b64) {
+        streamCanvas.src = data.frame_b64;
+        if (!camModal.classList.contains("hidden")) {
+            modalCanvas.src = data.frame_b64;
+        }
+    }
 
-    ws.onerror = (err) => {
-        console.error("WebSocket error:", err);
-        stopWebSocketStream();
-    };
+    if (data.fps !== undefined) {
+        metricFps.innerText = `${data.fps} FPS`;
+    }
+
+    if (data.consecutive_frames !== undefined) {
+        consecutiveBadge.innerText = `CONSECUTIVE FRAMES: ${data.consecutive_frames}/5`;
+    }
+
+    renderSpatialHeatmap(data.detections);
+    updateStatusPopups(data.has_fire, data.status_message);
 }
 
 function stopWebSocketStream() {
+    httpFallbackActive = false;
+    isProcessingHttpFrame = false;
+
     if (frameSendInterval) {
         clearInterval(frameSendInterval);
         frameSendInterval = null;
@@ -354,7 +409,7 @@ function stopWebSocketStream() {
     }
 
     if (ws) {
-        ws.close();
+        try { ws.close(); } catch (e) {}
         ws = null;
     }
 

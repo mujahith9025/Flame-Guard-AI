@@ -173,6 +173,63 @@ async def get_system_status():
     }
 
 
+@app.post("/api/stream-frame")
+async def process_stream_frame(payload: Dict[str, Any]):
+    """
+    HTTP POST Frame Streaming API (Cloud Fallback for Render.com when WebSockets are throttled).
+    """
+    frame_b64 = payload.get("frame_b64")
+    if not frame_b64:
+        raise HTTPException(status_code=400, detail="Missing frame_b64")
+
+    try:
+        b64_str = frame_b64.split(",")[1] if "," in frame_b64 else frame_b64
+        img_bytes = base64.b64decode(b64_str)
+        nparr = np.frombuffer(img_bytes, np.uint8)
+        frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid image format: {e}")
+
+    if frame is None:
+        raise HTTPException(status_code=400, detail="Frame decode failed.")
+
+    detector = get_detector()
+    annotated_frame, detections, fps = detector.process_frame(
+        frame, config=state["config"], draw_fps=True
+    )
+
+    has_fire_or_smoke = False
+    hazards_found = set()
+
+    for d in detections:
+        cls_name = d["class"].lower()
+        if "fire" in cls_name or "smoke" in cls_name:
+            has_fire_or_smoke = True
+            hazards_found.add(cls_name.upper())
+            log_hazard(
+                hazard_type=d["class"],
+                confidence=d["confidence"],
+                source="Live Camera Stream",
+                frame_count=detector.consecutive_hazard_frames,
+                track_id=d.get("track_id"),
+                growth_rate=d.get("growth_rate_pct_sec", 0.0)
+            )
+
+    _, buffer = cv2.imencode(".jpg", annotated_frame, [int(cv2.IMWRITE_JPEG_QUALITY), 70])
+    out_b64 = base64.b64encode(buffer).decode("utf-8")
+
+    return {
+        "success": True,
+        "fps": round(fps, 1),
+        "has_fire": has_fire_or_smoke,
+        "hazard_labels": list(hazards_found),
+        "status_message": f"🚨 CRITICAL INCIDENT // FIRE DETECTED: {', '.join(hazards_found)}" if has_fire_or_smoke else "✅ FACILITY SECURE // NO INCIDENTS DETECTED",
+        "detections": detections,
+        "consecutive_frames": detector.consecutive_hazard_frames,
+        "frame_b64": f"data:image/jpeg;base64,{out_b64}"
+    }
+
+
 @app.post("/api/detect-image")
 async def detect_uploaded_image(file: UploadFile = File(...)):
     contents = await file.read()
@@ -340,7 +397,6 @@ async def websocket_stream_endpoint(websocket: WebSocket):
     """
     Real-Time WebSocket Detection Stream.
     Supports receiving live webcam frames directly from the browser client (Cloud & Render compatible).
-    Fallback to local hardware VideoCapture(0) if running locally without browser frames.
     """
     await websocket.accept()
     logger.info("WebSocket client connected to live detection stream.")
@@ -350,7 +406,6 @@ async def websocket_stream_endpoint(websocket: WebSocket):
 
     try:
         while True:
-            # 1. Receive client payload over WebSocket
             raw_msg = await websocket.receive_text()
             data = json.loads(raw_msg)
 
@@ -364,7 +419,6 @@ async def websocket_stream_endpoint(websocket: WebSocket):
                 except Exception as b64_err:
                     logger.error(f"Error decoding client frame: {b64_err}")
 
-            # 2. Local fallback if no client frame received
             if frame is None:
                 if cap is None:
                     cap = cv2.VideoCapture(0)
@@ -373,7 +427,6 @@ async def websocket_stream_endpoint(websocket: WebSocket):
                     await asyncio.sleep(0.05)
                     continue
 
-            # 3. Process frame with YOLOv8 + ByteTrack
             annotated_frame, detections, fps = detector.process_frame(
                 frame, config=state["config"], draw_fps=True
             )
@@ -395,8 +448,7 @@ async def websocket_stream_endpoint(websocket: WebSocket):
                         growth_rate=d.get("growth_rate_pct_sec", 0.0)
                     )
 
-            # 4. Encode annotated frame to JPEG base64 and reply to client
-            _, buffer = cv2.imencode(".jpg", annotated_frame, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
+            _, buffer = cv2.imencode(".jpg", annotated_frame, [int(cv2.IMWRITE_JPEG_QUALITY), 75])
             b64_frame = base64.b64encode(buffer).decode("utf-8")
 
             payload = {
