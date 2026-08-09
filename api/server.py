@@ -87,17 +87,17 @@ state = {
 def get_detector():
     if state["detector"] is None:
         cfg = state["config"]
-        weights = cfg.get("model", {}).get("weights", "best.pt")
+        best_pt_path = Path(PROJECT_ROOT) / "best.pt"
+        if best_pt_path.exists():
+            weights = str(best_pt_path)
+        else:
+            weights = cfg.get("model", {}).get("weights", "best.pt")
+
         conf = float(cfg.get("model", {}).get("confidence_threshold", 0.05))
         iou = float(cfg.get("model", {}).get("iou_threshold", 0.45))
         cd = int(cfg.get("alerts", {}).get("cooldown_seconds", 30))
 
-        if not Path(weights).exists() and Path("best.pt").exists():
-            weights = "best.pt"
-        elif not Path(weights).exists() and Path("yolov8s.pt").exists():
-            weights = "yolov8s.pt"
-
-        logger.info(f"Initializing YOLOv8 detector using '{weights}'...")
+        logger.info(f"Initializing YOLOv8 detector using absolute path '{weights}'...")
         state["detector"] = FireSmokeDetector(
             model_path=weights,
             conf_threshold=conf,
