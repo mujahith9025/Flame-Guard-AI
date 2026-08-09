@@ -706,12 +706,36 @@ body.login-body {
     display: flex;
     align-items: center;
     justify-content: center;
+    overflow: hidden;
 }
 
-.cam-viewport img {
+/* Client Video Stream Element */
+.cam-video-element {
+    position: absolute;
+    top: 0;
+    left: 0;
     width: 100%;
     height: 100%;
-    object-fit: contain;
+    object-fit: cover;
+    z-index: 1;
+    display: none;
+}
+
+.cam-video-element.active {
+    display: block;
+}
+
+/* Detection Bounding Overlay Image */
+.detection-overlay-img {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: 5;
+    pointer-events: none;
+    opacity: 0.95;
     transition: filter 0.3s ease;
 }
 
@@ -728,7 +752,7 @@ body.login-body {
 }
 
 /* Thermal Color Palette Effect */
-.thermal-palette-active img {
+.thermal-palette-active video, .thermal-palette-active img {
     filter: contrast(180%) hue-rotate(180deg) saturate(250%) invert(20%);
 }
 
@@ -777,6 +801,7 @@ body.login-body {
     font-family: var(--font-body);
     font-size: 13px;
     font-weight: 600;
+    z-index: 2;
 }
 
 .stream-placeholder i { font-size: 40px; }

@@ -1,4 +1,4 @@
-// Industrial Multi-Camera CCTV Surveillance Center Controller v22.0 (Dual WebSocket + HTTP POST Cloud Stream Engine)
+// Industrial Multi-Camera CCTV Surveillance Center Controller v21.0 (Live Viewport Integration Ready)
 let ws = null;
 let isStreaming = false;
 let soundEnabled = true;
@@ -242,7 +242,7 @@ function updateStatusPopups(hasFire, hazardMessage) {
 // Expand Cam Feed Fullscreen Modal
 function expandCamFeed(camTitle) {
     modalCamTitle.innerText = camTitle;
-    modalCanvas.src = streamCanvas.src;
+    modalCanvas.src = streamCanvas.src || clientWebcamCanvas.toDataURL();
     camModal.classList.remove("hidden");
 }
 
@@ -265,6 +265,7 @@ async function startWebSocketStream() {
             audio: false
         });
         clientWebcamVideo.srcObject = localMediaStream;
+        clientWebcamVideo.classList.add("active");
         await clientWebcamVideo.play();
     } catch (err) {
         if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
@@ -281,7 +282,7 @@ async function startWebSocketStream() {
     startStreamBtn.disabled = true;
     stopStreamBtn.disabled = false;
 
-    // Canvas configuration (Optimized 480x360 for high-speed cloud throughput)
+    // Canvas configuration
     const ctx = clientWebcamCanvas.getContext("2d");
     clientWebcamCanvas.width = 480;
     clientWebcamCanvas.height = 360;
@@ -300,9 +301,11 @@ async function startWebSocketStream() {
             frameSendInterval = setInterval(() => {
                 if (!ws || ws.readyState !== WebSocket.OPEN) return;
                 try {
-                    ctx.drawImage(clientWebcamVideo, 0, 0, 480, 360);
-                    const frameB64 = clientWebcamCanvas.toDataURL("image/jpeg", 0.45);
-                    ws.send(JSON.stringify({ frame_b64: frameB64 }));
+                    if (clientWebcamVideo.videoWidth > 0) {
+                        ctx.drawImage(clientWebcamVideo, 0, 0, 480, 360);
+                        const frameB64 = clientWebcamCanvas.toDataURL("image/jpeg", 0.45);
+                        ws.send(JSON.stringify({ frame_b64: frameB64 }));
+                    }
                 } catch (e) {
                     console.error("WebSocket frame send error:", e);
                 }
@@ -352,18 +355,20 @@ function startHttpFallbackStream() {
         isProcessingHttpFrame = true;
 
         try {
-            ctx.drawImage(clientWebcamVideo, 0, 0, 480, 360);
-            const frameB64 = clientWebcamCanvas.toDataURL("image/jpeg", 0.45);
+            if (clientWebcamVideo.videoWidth > 0) {
+                ctx.drawImage(clientWebcamVideo, 0, 0, 480, 360);
+                const frameB64 = clientWebcamCanvas.toDataURL("image/jpeg", 0.45);
 
-            const resp = await fetch("/api/stream-frame", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ frame_b64: frameB64 })
-            });
+                const resp = await fetch("/api/stream-frame", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ frame_b64: frameB64 })
+                });
 
-            if (resp.ok) {
-                const data = await resp.json();
-                handleStreamPayload(data);
+                if (resp.ok) {
+                    const data = await resp.json();
+                    handleStreamPayload(data);
+                }
             }
         } catch (e) {
             console.error("HTTP stream frame error:", e);
@@ -408,6 +413,8 @@ function stopWebSocketStream() {
         localMediaStream = null;
     }
 
+    clientWebcamVideo.classList.remove("active");
+
     if (ws) {
         try { ws.close(); } catch (e) {}
         ws = null;
@@ -418,6 +425,7 @@ function stopWebSocketStream() {
     startStreamBtn.disabled = false;
     stopStreamBtn.disabled = true;
     metricFps.innerText = `0.0 FPS`;
+    streamCanvas.src = "";
     renderSpatialHeatmap([]);
     updateStatusPopups(false, null);
 }

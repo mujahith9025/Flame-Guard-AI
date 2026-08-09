@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Outfit:wght@500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="/static/style.css?v=20.0">
+    <link rel="stylesheet" href="/static/style.css?v=21.0">
 </head>
 <body class="cctv-theme">
     <div class="cctv-layout-container">
@@ -36,7 +36,7 @@
                 <!-- Live Date & Clock Badge -->
                 <div class="clock-badge">
                     <i class="fa-regular fa-clock"></i>
-                    <span id="liveClockDisplay">2026-08-09 09:00:00</span>
+                    <span id="liveClockDisplay">2026-08-09 09:10:00</span>
                 </div>
 
                 <!-- Compact Sound Toggle -->
@@ -114,7 +114,9 @@
                             </div>
 
                             <div class="cam-viewport" id="viewport1">
-                                <img id="streamCanvas" src="https://images.unsplash.com/photo-1517649763962-0c623266010b?w=800&auto=format&fit=crop&q=60" alt="Cam 01 Feed">
+                                <!-- Real-Time Client Webcam Video View -->
+                                <video id="clientWebcamVideo" autoplay playsinline muted class="cam-video-element"></video>
+                                <img id="streamCanvas" src="" alt="YOLOv8 Stream" class="detection-overlay-img">
                                 
                                 <!-- Heatmap Canvas Overlay -->
                                 <canvas id="heatmapCanvas" class="heatmap-overlay-canvas"></canvas>
@@ -275,8 +277,7 @@
         </main>
     </div>
 
-    <!-- Hidden Video & Canvas for Browser Client Webcam Capture -->
-    <video id="clientWebcamVideo" autoplay playsinline muted style="display:none;"></video>
+    <!-- Hidden Canvas for Server Frame Transmission -->
     <canvas id="clientWebcamCanvas" style="display:none;"></canvas>
 
     <!-- Floating Event Log Slide-Out Drawer Panel (Right to Left Slide) -->
@@ -329,6 +330,6 @@
     </div>
 
     <!-- CCTV App Controller Script -->
-    <script src="/static/app.js?v=20.0"></script>
+    <script src="/static/app.js?v=21.0"></script>
 </body>
 </html>
