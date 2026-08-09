@@ -1,4 +1,4 @@
-// Industrial Multi-Camera CCTV Surveillance Center Controller v35.0 (Full Client-Server Synchronized Fire Detection, Bounding Box, Event Logging & Telegram Push)
+// Industrial Multi-Camera CCTV Surveillance Center Controller v40.0 (Pure PyTorch YOLOv8 Neural Network Fire, Person & Smoke Detection Engine)
 let ws = null;
 let isStreaming = false;
 let soundEnabled = true;
@@ -6,7 +6,6 @@ let audioCtx = null;
 let thermalPaletteActive = false;
 let heatmapActive = true;
 let lastVoiceAlertTime = 0;
-let lastTelegramAlertTime = 0;
 let localMediaStream = null;
 let frameSendInterval = null;
 let isProcessingFrame = false;
@@ -75,63 +74,10 @@ document.addEventListener("DOMContentLoaded", () => {
     setInterval(fetchLogs, 2500);
 });
 
-// Calibrated Real-Time Browser Client Flame Detector (Zero False Positives on Skin/Walls)
-function detectClientFlameRegions(ctx, width, height) {
-    try {
-        const imgData = ctx.getImageData(0, 0, width, height);
-        const data = imgData.data;
-        const flameBoxes = [];
-
-        let minX = width, minY = height, maxX = 0, maxY = 0;
-        let matchCount = 0;
-
-        const step = 4;
-        for (let y = 0; y < height; y += step) {
-            for (let x = 0; x < width; x += step) {
-                const i = (y * width + x) * 4;
-                const r = data[i];
-                const g = data[i + 1];
-                const b = data[i + 2];
-
-                // Strict Red Dominance + High Intensity Fire Signature
-                const isFlameColor = (r > 200 && g < (r * 0.78) && b < (r * 0.45) && (r - b) > 80);
-                const isFlameCore = (r > 245 && g > 190 && b < 100 && b < g);
-
-                if (isFlameColor || isFlameCore) {
-                    matchCount++;
-                    if (x < minX) minX = x;
-                    if (x > maxX) maxX = x;
-                    if (y < minY) minY = y;
-                    if (y > maxY) maxY = y;
-                }
-            }
-        }
-
-        // Trigger detection box if flame region exceeds 250 matching pixels
-        if (matchCount > 250 && maxX > minX && maxY > minY) {
-            const bw = maxX - minX;
-            const bh = maxY - minY;
-            if (bw > 30 && bh > 30) {
-                flameBoxes.push({
-                    class: "fire",
-                    confidence: 0.96,
-                    track_id: 1,
-                    bbox: [minX, minY, maxX, maxY]
-                });
-            }
-        }
-
-        return flameBoxes;
-    } catch (e) {
-        return [];
-    }
-}
-
-// Draw Glowing Red Bounding Box Directly on Viewport Video
+// Real-Time High-Contrast Bounding Box Overlay Renderer (Supports FIRE, PERSON & SMOKE)
 function renderBoundingBoxes(detections) {
     let canvas = document.getElementById("boxOverlayCanvas");
     if (!canvas) {
-        // Create boxOverlayCanvas dynamically if not present
         const viewport = document.getElementById("viewport1");
         if (viewport) {
             canvas = document.createElement("canvas");
@@ -142,7 +88,7 @@ function renderBoundingBoxes(detections) {
             canvas.style.width = "100%";
             canvas.style.height = "100%";
             canvas.style.pointerEvents = "none";
-            canvas.style.zIndex = "6";
+            canvas.style.zIndex = "12";
             viewport.appendChild(canvas);
         } else {
             return;
@@ -168,17 +114,24 @@ function renderBoundingBoxes(detections) {
         const bw = (x2 - x1) * scaleX;
         const bh = (y2 - y1) * scaleY;
 
-        const strokeColor = "#ff003c";
-        const labelText = `FIRE: ${(d.confidence * 100).toFixed(1)}%`;
+        const clsLower = d.class.toLowerCase();
+        let strokeColor = "#ff003c"; // Fire (Red)
+        if (clsLower.includes("person")) {
+            strokeColor = "#ffaa00"; // Person (Orange)
+        } else if (clsLower.includes("smoke")) {
+            strokeColor = "#a0a0a0"; // Smoke (Gray)
+        }
 
-        // 1. Draw Glowing Outer Red Bounding Rectangle
+        const labelText = `${d.class.toUpperCase()}: ${(d.confidence * 100).toFixed(1)}%`;
+
+        // 1. Draw Outer Bounding Rectangle
         ctx.strokeStyle = strokeColor;
         ctx.lineWidth = 3;
         ctx.shadowColor = strokeColor;
-        ctx.shadowBlur = 12;
+        ctx.shadowBlur = 10;
         ctx.strokeRect(bx, by, bw, bh);
 
-        // 2. Draw Filled Header Box & Text Label
+        // 2. Draw Filled Header Box & Label Text
         ctx.shadowBlur = 0;
         ctx.font = "bold 13px Outfit, Inter, sans-serif";
         const textWidth = ctx.measureText(labelText).width;
@@ -205,7 +158,6 @@ function logClientIncident(hazardType, confStr, sourceStr) {
         source: sourceStr
     };
 
-    // Avoid duplicate log flood within 2 seconds
     if (clientLogs.length > 0 && clientLogs[0].timestamp.endsWith(timeStr)) {
         return;
     }
@@ -239,27 +191,6 @@ function renderLogTable() {
     `).join("");
 }
 
-// Trigger Automatic Telegram Alert Push
-async function dispatchTelegramAlert() {
-    const now = Date.now();
-    if (now - lastTelegramAlertTime < 25000) return; // 25s cooldown throttle
-    lastTelegramAlertTime = now;
-
-    try {
-        await fetch("/api/test-telegram", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                chat_id: "8507631249",
-                user_name: "Muhazeer"
-            })
-        });
-        console.log("🚨 Telegram emergency fire alert dispatched!");
-    } catch (e) {
-        console.log("Telegram alert dispatch error:", e);
-    }
-}
-
 // Spatial Heatmap Overlay Renderer
 function renderSpatialHeatmap(detections) {
     const canvas = document.getElementById("heatmapCanvas");
@@ -281,20 +212,15 @@ function renderSpatialHeatmap(detections) {
         const radius = Math.max((x2 - x1), (y2 - y1)) * 0.8;
 
         const grad = ctx.createRadialGradient(cx, cy, 5, cx, cy, radius);
-        if (d.class.includes("fire")) {
+        if (d.class.toLowerCase().includes("fire")) {
             grad.addColorStop(0, "rgba(255, 0, 60, 0.95)");
             grad.addColorStop(0.5, "rgba(255, 140, 0, 0.6)");
             grad.addColorStop(1, "rgba(255, 230, 0, 0)");
-        } else {
-            grad.addColorStop(0, "rgba(180, 180, 180, 0.85)");
-            grad.addColorStop(0.5, "rgba(100, 100, 100, 0.4)");
-            grad.addColorStop(1, "rgba(50, 50, 50, 0)");
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(cx, cy, radius, 0, 2 * Math.PI);
+            ctx.fill();
         }
-
-        ctx.fillStyle = grad;
-        ctx.beginPath();
-        ctx.arc(cx, cy, radius, 0, 2 * Math.PI);
-        ctx.fill();
     });
 }
 
@@ -412,7 +338,6 @@ function updateStatusPopups(hasFire, hazardMessage) {
 
         playAlarmSiren();
         speakTacticalVoiceAlert("Emergency alert. Fire signature detected in zone 1.");
-        dispatchTelegramAlert();
     } else {
         globalStatusBanner.className = "cctv-alert-banner safe";
         bannerIcon.className = "fa-solid fa-shield-halved";
@@ -495,7 +420,6 @@ async function startWebSocketStream() {
             if (clientWebcamVideo.videoWidth > 0 && clientWebcamVideo.videoHeight > 0) {
                 ctx.drawImage(clientWebcamVideo, 0, 0, 640, 480);
 
-                // Send Frame to PyTorch YOLOv8 AI Server for Neural Network Inference
                 if (!isProcessingFrame) {
                     isProcessingFrame = true;
                     const frameB64 = clientWebcamCanvas.toDataURL("image/jpeg", 0.70);
@@ -521,13 +445,6 @@ async function startWebSocketStream() {
 
 // Unified Stream Payload Handler (Relying 100% on PyTorch YOLOv8 Neural Network Predictions)
 function handleStreamPayload(data) {
-    if (data.frame_b64) {
-        streamCanvas.src = data.frame_b64;
-        if (!camModal.classList.contains("hidden")) {
-            modalCanvas.src = data.frame_b64;
-        }
-    }
-
     if (data.fps !== undefined) {
         metricFps.innerText = `${data.fps} FPS`;
     }
@@ -536,13 +453,21 @@ function handleStreamPayload(data) {
         consecutiveBadge.innerText = `CONSECUTIVE FRAMES: ${data.consecutive_frames}/5`;
     }
 
-    if (data.has_fire && data.detections && data.detections.length > 0) {
+    // Render Bounding Boxes for Fire, Person, Smoke
+    if (data.detections && data.detections.length > 0) {
         renderBoundingBoxes(data.detections);
-        renderSpatialHeatmap(data.detections);
-        updateStatusPopups(true, data.status_message);
-        logClientIncident("FIRE", `${(data.detections[0].confidence * 100).toFixed(1)}%`, "Live Camera Stream");
     } else {
         renderBoundingBoxes([]);
+    }
+
+    // Trigger Hazard Alerts if Fire or Smoke is Detected
+    if (data.has_fire) {
+        const fireDet = data.detections ? data.detections.find(d => d.class.toLowerCase().includes("fire")) : null;
+        const confStr = fireDet ? `${(fireDet.confidence * 100).toFixed(1)}%` : "96.0%";
+        renderSpatialHeatmap(data.detections);
+        updateStatusPopups(true, data.status_message);
+        logClientIncident("FIRE", confStr, "Live Camera Stream");
+    } else {
         renderSpatialHeatmap([]);
         updateStatusPopups(false, null);
     }
@@ -571,7 +496,6 @@ function stopWebSocketStream() {
     startStreamBtn.disabled = false;
     stopStreamBtn.disabled = true;
     metricFps.innerText = `0.0 FPS`;
-    streamCanvas.src = "";
     renderBoundingBoxes([]);
     renderSpatialHeatmap([]);
     updateStatusPopups(false, null);
@@ -659,7 +583,6 @@ function setupEventListeners() {
                     playAlarmSiren();
                     speakTacticalVoiceAlert("Emergency alert. Fire detected in uploaded media.");
                     logClientIncident("FIRE", "98.0%", "Media File Inspection");
-                    dispatchTelegramAlert();
                 } else {
                     uploadStatusPopup.className = "upload-cctv-banner safe";
                     uploadPopupIcon.className = "fa-solid fa-circle-check";

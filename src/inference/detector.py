@@ -31,15 +31,15 @@ class FireSmokeDetector:
     }
 
     CLASS_CONF_THRESHOLDS = {
-        "fire": 0.25,   # High-precision threshold for fire (25%) to eliminate background noise
-        "smoke": 0.25,  # Balanced threshold for smoke (25%)
-        "person": 0.40  # Threshold for person detection
+        "fire": 0.35,   # High-precision confidence threshold for fire (35%)
+        "smoke": 0.35,  # High-precision confidence threshold for smoke (35%)
+        "person": 0.35  # High-precision confidence threshold for person (35%)
     }
 
     def __init__(
         self,
         model_path: str = "best.pt",
-        conf_threshold: float = 0.25,
+        conf_threshold: float = 0.35,
         iou_threshold: float = 0.45,
         device: str = "cpu",
         alert_cooldown: int = 30
