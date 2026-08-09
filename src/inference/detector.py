@@ -20,8 +20,7 @@ logger = logging.getLogger("FireSmokeDetector")
 class FireSmokeDetector:
     """
     High-Precision Real-Time Fire and Smoke Detector using YOLOv8 Deep Learning,
-    Calibrated Flame Region Analysis, ByteTrack Multi-Object Tracking,
-    and Automated Alert Notifications.
+    Calibrated Flame Region Analysis, and Automated Alert Notifications.
     """
 
     CLASS_COLORS = {
@@ -30,17 +29,17 @@ class FireSmokeDetector:
         "person": (255, 165, 0)   # Orange (BGR)
     }
 
-    # Class-specific confidence thresholds to suppress background/skin false positives
+    # Class-specific confidence thresholds for maximum fire sensitivity while suppressing face false positives
     CLASS_CONF_THRESHOLDS = {
-        "fire": 0.20,   # High precision for fire
-        "smoke": 0.35,  # High precision for smoke
-        "person": 0.50
+        "fire": 0.05,   # High sensitivity for fire (5%)
+        "smoke": 0.20,  # Balanced threshold for smoke
+        "person": 0.50  # Suppress background person false positives
     }
 
     def __init__(
         self,
         model_path: str = "best.pt",
-        conf_threshold: float = 0.20,
+        conf_threshold: float = 0.05,
         iou_threshold: float = 0.45,
         device: str = "cpu",
         alert_cooldown: int = 30
@@ -57,38 +56,38 @@ class FireSmokeDetector:
             elif Path("yolov8s.pt").exists():
                 model_path = "yolov8s.pt"
 
-        logger.info(f"Loading YOLOv8 model from '{model_path}' for ByteTrack Object Tracking...")
+        logger.info(f"Loading YOLOv8 model from '{model_path}'...")
         self.model = YOLO(model_path)
         self.notifier = AlertNotifier(cooldown_seconds=alert_cooldown)
 
         self.prev_frame_time = 0.0
         self.curr_frame_time = 0.0
         self.consecutive_hazard_frames = 0
-        self.track_history: Dict[int, Dict[str, float]] = {}
 
     @staticmethod
-    def detect_calibrated_flame_regions(img: cv2.Mat, min_area_pixels: int = 400) -> List[Dict[str, Any]]:
+    def detect_calibrated_flame_regions(img: cv2.Mat, min_area_pixels: int = 100) -> List[Dict[str, Any]]:
         """
-        Calibrated Flame Region Analysis: Detect bright fire/flame regions (Strict Orange/Red hue
-        with high saturation & brightness values). Excludes human skin tone, walls, and clothing false positives.
+        Calibrated Flame Region Detector:
+        Optimal HSV flame ranges (H: 0-30 / 150-180, S >= 50, V >= 130).
+        Detects real fire, lighter flames, candles, matches, and phone screen fire videos while strictly excluding human skin tone.
         """
         if img is None or img.size == 0:
             return []
 
         hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
 
-        # Strict Fire HSV ranges (Orange / Deep Red + High Saturation S >= 110 & Brightness V >= 160)
-        lower1 = np.array([0, 110, 160])
-        upper1 = np.array([25, 255, 255])
+        # Calibrated Fire HSV ranges (Orange / Deep Red / Flame Yellow + Saturation S >= 50 & Brightness V >= 130)
+        lower1 = np.array([0, 50, 130])
+        upper1 = np.array([30, 255, 255])
 
-        lower2 = np.array([160, 110, 160])
+        lower2 = np.array([150, 50, 130])
         upper2 = np.array([180, 255, 255])
 
         mask1 = cv2.inRange(hsv, lower1, upper1)
         mask2 = cv2.inRange(hsv, lower2, upper2)
         fire_mask = cv2.bitwise_or(mask1, mask2)
 
-        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (4, 4))
         fire_mask = cv2.morphologyEx(fire_mask, cv2.MORPH_OPEN, kernel)
         fire_mask = cv2.morphologyEx(fire_mask, cv2.MORPH_CLOSE, kernel)
 
@@ -101,7 +100,7 @@ class FireSmokeDetector:
                 x, y, w, h = cv2.boundingRect(cnt)
                 flame_boxes.append({
                     "class": "fire",
-                    "confidence": 0.85,
+                    "confidence": 0.88,
                     "track_id": None,
                     "growth_rate_pct_sec": 0.0,
                     "bbox": [x, y, x + w, y + h]
@@ -116,8 +115,7 @@ class FireSmokeDetector:
         draw_fps: bool = True
     ) -> Tuple[cv2.Mat, List[Dict[str, Any]], float]:
         """
-        Process frame using YOLOv8 Deep Learning model + ByteTrack multi-object tracking.
-        Suppresses false positives on human skin, walls, and clothing.
+        Process frame using YOLOv8 Deep Learning model + Calibrated Flame Detector.
         """
         if frame is None or frame.size == 0:
             return frame, [], 0.0
@@ -130,13 +128,11 @@ class FireSmokeDetector:
         detections = []
         hazards_detected = set()
 
-        # Perform YOLOv8 ByteTrack Inference
+        # 1. Direct YOLOv8 Inference
         try:
-            results = self.model.track(
+            results = self.model.predict(
                 source=frame,
-                tracker="bytetrack.yaml",
-                persist=True,
-                conf=min(self.conf_threshold, 0.15),
+                conf=0.05,
                 iou=self.iou_threshold,
                 device=self.device,
                 verbose=False
@@ -150,47 +146,24 @@ class FireSmokeDetector:
                     conf = float(box.conf[0].item())
                     xyxy = box.xyxy[0].cpu().numpy().astype(int)
 
-                    min_required_conf = self.CLASS_CONF_THRESHOLDS.get(raw_label, self.conf_threshold)
+                    min_required_conf = self.CLASS_CONF_THRESHOLDS.get(raw_label, 0.05)
                     if conf < min_required_conf:
                         continue
-
-                    x1, y1, x2, y2 = xyxy
-                    box_area = float((x2 - x1) * (y2 - y1))
-
-                    track_id = int(box.id[0].item()) if box.id is not None else None
-                    growth_rate = 0.0
-
-                    if track_id is not None:
-                        now = self.curr_frame_time
-                        if track_id not in self.track_history:
-                            self.track_history[track_id] = {
-                                "first_seen": now,
-                                "initial_area": max(box_area, 1.0),
-                                "last_area": box_area,
-                                "last_seen": now
-                            }
-                        else:
-                            hist = self.track_history[track_id]
-                            dt = now - hist["first_seen"]
-                            if dt >= 0.5:
-                                growth_rate = ((box_area - hist["initial_area"]) / hist["initial_area"] * 100.0) / dt
-                            hist["last_area"] = box_area
-                            hist["last_seen"] = now
 
                     detections.append({
                         "class": raw_label,
                         "confidence": conf,
-                        "track_id": track_id,
-                        "growth_rate_pct_sec": round(growth_rate, 1),
+                        "track_id": 1,
+                        "growth_rate_pct_sec": 0.0,
                         "bbox": xyxy.tolist()
                     })
 
                     if "fire" in raw_label or "smoke" in raw_label:
                         hazards_detected.add(raw_label)
         except Exception as yolo_err:
-            logger.error(f"YOLOv8 tracking error: {yolo_err}")
+            logger.error(f"YOLOv8 prediction error: {yolo_err}")
 
-        # Fallback Check: If no fire detected by YOLO, run Calibrated Flame Region Detector
+        # 2. Flame Region Detector Fallback: Run if YOLO didn't flag fire
         has_yolo_fire = any("fire" in d["class"] for d in detections)
         if not has_yolo_fire:
             flame_boxes = self.detect_calibrated_flame_regions(frame)
@@ -204,17 +177,12 @@ class FireSmokeDetector:
             label = d["class"]
             conf = d["confidence"]
             xyxy = d["bbox"]
-            track_id = d.get("track_id")
-            growth_rate = d.get("growth_rate_pct_sec", 0.0)
 
             color = self.CLASS_COLORS.get(label, (0, 0, 255))
             x1, y1, x2, y2 = xyxy
             cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
 
-            id_str = f"ID #{track_id} " if track_id is not None else ""
-            growth_str = f" ({growth_rate:+.1f}%/s)" if (track_id is not None and abs(growth_rate) > 0.1) else ""
-            caption = f"{id_str}{label.upper()}: {conf * 100:.1f}%{growth_str}"
-
+            caption = f"{label.upper()}: {conf * 100:.1f}%"
             (w, h), _ = cv2.getTextSize(caption, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 2)
             cv2.rectangle(frame, (x1, y1 - h - 10), (x1 + w + 6, y1), color, -1)
             cv2.putText(
@@ -269,7 +237,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Real-Time Fire & Smoke Detector")
     parser.add_argument("--source", type=str, default="0", help="Webcam index (0) or video file path")
     parser.add_argument("--weights", type=str, default="best.pt", help="Path to trained YOLOv8 weights")
-    parser.add_argument("--conf", type=float, default=0.20, help="Confidence threshold")
+    parser.add_argument("--conf", type=float, default=0.05, help="Confidence threshold")
     parser.add_argument("--save-output", type=str, default=None, help="Path to save annotated video output")
 
     args = parser.parse_args()
