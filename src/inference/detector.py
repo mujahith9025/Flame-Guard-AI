@@ -31,15 +31,15 @@ class FireSmokeDetector:
     }
 
     CLASS_CONF_THRESHOLDS = {
-        "fire": 0.05,   # Maximum sensitivity for fire (5%)
-        "smoke": 0.20,  # Balanced threshold for smoke
-        "person": 0.50  # Suppress background person false positives
+        "fire": 0.25,   # High-precision threshold for fire (25%) to eliminate background noise
+        "smoke": 0.25,  # Balanced threshold for smoke (25%)
+        "person": 0.40  # Threshold for person detection
     }
 
     def __init__(
         self,
         model_path: str = "best.pt",
-        conf_threshold: float = 0.05,
+        conf_threshold: float = 0.25,
         iou_threshold: float = 0.45,
         device: str = "cpu",
         alert_cooldown: int = 30
@@ -65,12 +65,12 @@ class FireSmokeDetector:
         self.consecutive_hazard_frames = 0
 
     @staticmethod
-    def detect_calibrated_flame_regions(img: cv2.Mat, min_area_pixels: int = 300) -> List[Dict[str, Any]]:
+    def detect_calibrated_flame_regions(img: cv2.Mat, min_area_pixels: int = 600) -> List[Dict[str, Any]]:
         """
         Universal High-Precision Flame Detector Engine (Zero False Positives on Human Skin/Walls):
-        1. Strict Flame RGB Red Dominance (R > 185, G < R*0.85, B < R*0.55, R - B > 60)
-        2. High Saturation & Brightness Thresholds (S >= 50, V >= 90)
-        3. Intense White/Yellow Flame Cores (R >= 240, G >= 180, B <= 120, B < G)
+        1. Strict Flame RGB Red Dominance (R > 195, G < R*0.80, B < R*0.50, R - B > 75)
+        2. High Saturation & Brightness Thresholds (S >= 70, V >= 110)
+        3. Intense White/Yellow Flame Cores (R >= 245, G >= 190, B <= 110, B < G)
         Excludes human skin tone, walls, clothing, and background room lights 100%.
         """
         if img is None or img.size == 0:
@@ -79,12 +79,12 @@ class FireSmokeDetector:
         hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
         b, g, r = cv2.split(img)
 
-        # 1. High-Precision Red Flame Dominance Signature (R > 185, G < R*0.85, B < R*0.55, R-B > 60, S >= 50)
-        cond_flame_rgb = (r > 185) & (g < (r * 0.85).astype(np.uint8)) & (b < (r * 0.55).astype(np.uint8)) & ((r.astype(int) - b.astype(int)) > 60) & (hsv[:, :, 1] >= 50)
+        # 1. High-Precision Red Flame Dominance Signature (R > 195, G < R*0.80, B < R*0.50, R-B > 75, S >= 70)
+        cond_flame_rgb = (r > 195) & (g < (r * 0.80).astype(np.uint8)) & (b < (r * 0.50).astype(np.uint8)) & ((r.astype(int) - b.astype(int)) > 75) & (hsv[:, :, 1] >= 70)
         mask_flame_rgb = cond_flame_rgb.astype(np.uint8) * 255
 
-        # 2. Overexposed Bright White/Yellow Flame Core Signature (R >= 240, G >= 180, B <= 120, B < G)
-        cond_white_core = (r >= 240) & (g >= 180) & (b <= 120) & (b < g)
+        # 2. Overexposed Bright White/Yellow Flame Core Signature (R >= 245, G >= 190, B <= 110, B < G)
+        cond_white_core = (r >= 245) & (g >= 190) & (b <= 110) & (b < g)
         mask_white_core = cond_white_core.astype(np.uint8) * 255
 
         # 3. Combined Flame Mask (Union of RGB Dominance & White Core)

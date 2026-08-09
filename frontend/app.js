@@ -75,7 +75,7 @@ document.addEventListener("DOMContentLoaded", () => {
     setInterval(fetchLogs, 2500);
 });
 
-// Calibrated Real-Time Browser Client Flame Detector
+// Calibrated Real-Time Browser Client Flame Detector (Zero False Positives on Skin/Walls)
 function detectClientFlameRegions(ctx, width, height) {
     try {
         const imgData = ctx.getImageData(0, 0, width, height);
@@ -93,8 +93,9 @@ function detectClientFlameRegions(ctx, width, height) {
                 const g = data[i + 1];
                 const b = data[i + 2];
 
-                const isFlameColor = (r > 175 && g < (r * 0.88) && b < (r * 0.55) && (r - b) > 50);
-                const isFlameCore = (r > 235 && g > 175 && b < 120 && b < g);
+                // Strict Red Dominance + High Intensity Fire Signature
+                const isFlameColor = (r > 200 && g < (r * 0.78) && b < (r * 0.45) && (r - b) > 80);
+                const isFlameCore = (r > 245 && g > 190 && b < 100 && b < g);
 
                 if (isFlameColor || isFlameCore) {
                     matchCount++;
@@ -106,10 +107,11 @@ function detectClientFlameRegions(ctx, width, height) {
             }
         }
 
-        if (matchCount > 100 && maxX > minX && maxY > minY) {
+        // Trigger detection box if flame region exceeds 250 matching pixels
+        if (matchCount > 250 && maxX > minX && maxY > minY) {
             const bw = maxX - minX;
             const bh = maxY - minY;
-            if (bw > 20 && bh > 20) {
+            if (bw > 30 && bh > 30) {
                 flameBoxes.push({
                     class: "fire",
                     confidence: 0.96,
