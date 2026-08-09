@@ -20,7 +20,7 @@ logger = logging.getLogger("FireSmokeDetector")
 class FireSmokeDetector:
     """
     High-Precision Real-Time Fire and Smoke Detector using YOLOv8 Deep Learning,
-    Calibrated Flame Region Analysis, ByteTrack Multi-Object Tracking,
+    Industrial Dual YCrCb + HSV Calibrated Flame Region Analysis, ByteTrack Multi-Object Tracking,
     and Automated Alert Notifications.
     """
 
@@ -40,7 +40,7 @@ class FireSmokeDetector:
     def __init__(
         self,
         model_path: str = "best.pt",
-        conf_threshold: float = 0.10,
+        conf_threshold: float = 0.05,
         iou_threshold: float = 0.45,
         device: str = "cpu",
         alert_cooldown: int = 30
@@ -50,10 +50,10 @@ class FireSmokeDetector:
         self.device = device
 
         if not Path(model_path).exists():
-            if Path("best.onnx").exists():
-                model_path = "best.onnx"
-            elif Path("best.pt").exists():
+            if Path("best.pt").exists():
                 model_path = "best.pt"
+            elif Path("best.onnx").exists():
+                model_path = "best.onnx"
             elif Path("yolov8s.pt").exists():
                 model_path = "yolov8s.pt"
 
@@ -72,28 +72,42 @@ class FireSmokeDetector:
         self.track_history: Dict[int, Dict[str, float]] = {}
 
     @staticmethod
-    def detect_calibrated_flame_regions(img: cv2.Mat, min_area_pixels: int = 150) -> List[Dict[str, Any]]:
+    def detect_calibrated_flame_regions(img: cv2.Mat, min_area_pixels: int = 30) -> List[Dict[str, Any]]:
         """
-        Calibrated Flame Region Detector: Ultra-sensitive HSV color & brightness analysis
-        for identifying real fire, lighter flames, candles, and phone screen fire images.
+        Industrial Dual YCrCb + HSV Calibrated Flame Region Detector:
+        Combines luminance-chrominance rules (Y > Cb, Cr > Cb, Y >= 110, Cr >= 125)
+        with HSV hue analysis (H: 0-40 / 140-180, S >= 30, V >= 80).
+        Detects real fire, lighter flames, candles, matches, and phone screen fire images instantly.
         """
-        if img is None:
+        if img is None or img.size == 0:
             return []
 
+        h, w = img.shape[:2]
+
+        # 1. HSV Flame Mask
         hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-
-        # Wide Fire HSV Color Ranges (Flame Red, Orange, Yellow-Orange)
-        lower1 = np.array([0, 40, 100])
-        upper1 = np.array([35, 255, 255])
-
-        lower2 = np.array([145, 40, 100])
+        lower1 = np.array([0, 30, 80])
+        upper1 = np.array([40, 255, 255])
+        lower2 = np.array([140, 30, 80])
         upper2 = np.array([180, 255, 255])
 
-        mask1 = cv2.inRange(hsv, lower1, upper1)
-        mask2 = cv2.inRange(hsv, lower2, upper2)
-        fire_mask = cv2.bitwise_or(mask1, mask2)
+        mask_hsv = cv2.bitwise_or(cv2.inRange(hsv, lower1, upper1), cv2.inRange(hsv, lower2, upper2))
 
-        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+        # 2. Industrial YCrCb Luminance-Chrominance Flame Mask
+        ycrcb = cv2.cvtColor(img, cv2.COLOR_BGR2YCrCb)
+        Y, Cr, Cb = cv2.split(ycrcb)
+
+        cond1 = Y > Cb
+        cond2 = Cr > Cb
+        cond3 = Y >= 110
+        cond4 = Cr >= 125
+
+        mask_ycrcb = (cond1 & cond2 & cond3 & cond4).astype(np.uint8) * 255
+
+        # 3. Fuse HSV & YCrCb Flame Masks
+        fire_mask = cv2.bitwise_and(mask_hsv, mask_ycrcb)
+
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
         fire_mask = cv2.morphologyEx(fire_mask, cv2.MORPH_OPEN, kernel)
         fire_mask = cv2.morphologyEx(fire_mask, cv2.MORPH_CLOSE, kernel)
 
@@ -103,13 +117,13 @@ class FireSmokeDetector:
         for cnt in contours:
             area = cv2.contourArea(cnt)
             if area >= min_area_pixels:
-                x, y, w, h = cv2.boundingRect(cnt)
+                bx, by, bw, bh = cv2.boundingRect(cnt)
                 flame_boxes.append({
                     "class": "fire",
-                    "confidence": 0.92,
+                    "confidence": 0.95,
                     "track_id": None,
                     "growth_rate_pct_sec": 0.0,
-                    "bbox": [x, y, x + w, y + h]
+                    "bbox": [bx, by, bx + bw, by + bh]
                 })
 
         return flame_boxes
@@ -122,9 +136,9 @@ class FireSmokeDetector:
     ) -> Tuple[cv2.Mat, List[Dict[str, Any]], float]:
         """
         Process frame using YOLOv8 Deep Learning model + ByteTrack multi-object tracking.
-        Integrates calibrated flame region detection fallback for isolated fire photos.
+        Integrates industrial dual YCrCb + HSV flame region detection fallback.
         """
-        if frame is None:
+        if frame is None or frame.size == 0:
             return frame, [], 0.0
 
         # FPS Calculation
@@ -132,68 +146,70 @@ class FireSmokeDetector:
         fps = 1.0 / (self.curr_frame_time - self.prev_frame_time) if self.prev_frame_time > 0 else 0.0
         self.prev_frame_time = self.curr_frame_time
 
-        # Perform YOLOv8 ByteTrack Inference with high sensitivity
-        results = self.model.track(
-            source=frame,
-            tracker="bytetrack.yaml",
-            persist=True,
-            conf=0.05,
-            iou=self.iou_threshold,
-            device=self.device,
-            verbose=False
-        )
-
         detections = []
         hazards_detected = set()
 
-        if results and len(results) > 0:
-            boxes = results[0].boxes
-            for box in boxes:
-                cls_id = int(box.cls[0].item())
-                raw_label = self.model.names.get(cls_id, f"class_{cls_id}").lower()
-                conf = float(box.conf[0].item())
-                xyxy = box.xyxy[0].cpu().numpy().astype(int)
+        # Perform YOLOv8 ByteTrack Inference
+        try:
+            results = self.model.track(
+                source=frame,
+                tracker="bytetrack.yaml",
+                persist=True,
+                conf=0.05,
+                iou=self.iou_threshold,
+                device=self.device,
+                verbose=False
+            )
 
-                # Apply Class-Specific Confidence Calibration Filter
-                min_required_conf = self.CLASS_CONF_THRESHOLDS.get(raw_label, 0.05)
-                if conf < min_required_conf:
-                    continue
+            if results and len(results) > 0:
+                boxes = results[0].boxes
+                for box in boxes:
+                    cls_id = int(box.cls[0].item())
+                    raw_label = self.model.names.get(cls_id, f"class_{cls_id}").lower()
+                    conf = float(box.conf[0].item())
+                    xyxy = box.xyxy[0].cpu().numpy().astype(int)
 
-                x1, y1, x2, y2 = xyxy
-                box_area = float((x2 - x1) * (y2 - y1))
+                    min_required_conf = self.CLASS_CONF_THRESHOLDS.get(raw_label, 0.05)
+                    if conf < min_required_conf:
+                        continue
 
-                track_id = int(box.id[0].item()) if box.id is not None else None
-                growth_rate = 0.0
+                    x1, y1, x2, y2 = xyxy
+                    box_area = float((x2 - x1) * (y2 - y1))
 
-                if track_id is not None:
-                    now = self.curr_frame_time
-                    if track_id not in self.track_history:
-                        self.track_history[track_id] = {
-                            "first_seen": now,
-                            "initial_area": max(box_area, 1.0),
-                            "last_area": box_area,
-                            "last_seen": now
-                        }
-                    else:
-                        hist = self.track_history[track_id]
-                        dt = now - hist["first_seen"]
-                        if dt >= 0.5:
-                            growth_rate = ((box_area - hist["initial_area"]) / hist["initial_area"] * 100.0) / dt
-                        hist["last_area"] = box_area
-                        hist["last_seen"] = now
+                    track_id = int(box.id[0].item()) if box.id is not None else None
+                    growth_rate = 0.0
 
-                detections.append({
-                    "class": raw_label,
-                    "confidence": conf,
-                    "track_id": track_id,
-                    "growth_rate_pct_sec": round(growth_rate, 1),
-                    "bbox": xyxy.tolist()
-                })
+                    if track_id is not None:
+                        now = self.curr_frame_time
+                        if track_id not in self.track_history:
+                            self.track_history[track_id] = {
+                                "first_seen": now,
+                                "initial_area": max(box_area, 1.0),
+                                "last_area": box_area,
+                                "last_seen": now
+                            }
+                        else:
+                            hist = self.track_history[track_id]
+                            dt = now - hist["first_seen"]
+                            if dt >= 0.5:
+                                growth_rate = ((box_area - hist["initial_area"]) / hist["initial_area"] * 100.0) / dt
+                            hist["last_area"] = box_area
+                            hist["last_seen"] = now
 
-                if "fire" in raw_label or "smoke" in raw_label:
-                    hazards_detected.add(raw_label)
+                    detections.append({
+                        "class": raw_label,
+                        "confidence": conf,
+                        "track_id": track_id,
+                        "growth_rate_pct_sec": round(growth_rate, 1),
+                        "bbox": xyxy.tolist()
+                    })
 
-        # Fallback Check: If no fire detected by YOLO, run Calibrated Flame Region Detector
+                    if "fire" in raw_label or "smoke" in raw_label:
+                        hazards_detected.add(raw_label)
+        except Exception as yolo_err:
+            logger.error(f"YOLOv8 tracking error: {yolo_err}")
+
+        # Industrial Flame Fallback: Always run Dual YCrCb + HSV Flame Region Detector if no fire detected by YOLO
         has_yolo_fire = any("fire" in d["class"] for d in detections)
         if not has_yolo_fire:
             flame_boxes = self.detect_calibrated_flame_regions(frame)

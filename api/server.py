@@ -88,11 +88,13 @@ def get_detector():
     if state["detector"] is None:
         cfg = state["config"]
         weights = cfg.get("model", {}).get("weights", "best.pt")
-        conf = float(cfg.get("model", {}).get("confidence_threshold", 0.20))
+        conf = float(cfg.get("model", {}).get("confidence_threshold", 0.05))
         iou = float(cfg.get("model", {}).get("iou_threshold", 0.45))
         cd = int(cfg.get("alerts", {}).get("cooldown_seconds", 30))
 
-        if not Path(weights).exists() and Path("yolov8s.pt").exists():
+        if not Path(weights).exists() and Path("best.pt").exists():
+            weights = "best.pt"
+        elif not Path(weights).exists() and Path("yolov8s.pt").exists():
             weights = "yolov8s.pt"
 
         logger.info(f"Initializing YOLOv8 detector using '{weights}'...")
@@ -167,7 +169,7 @@ async def get_system_status():
         conf_thresh = detector.conf_threshold
     else:
         model_name = "YOLOv8s Engine"
-        conf_thresh = float(state["config"].get("model", {}).get("confidence_threshold", 0.20))
+        conf_thresh = float(state["config"].get("model", {}).get("confidence_threshold", 0.05))
 
     telegram_cfg = state["config"].get("alerts", {}).get("telegram", {})
     telegram_id = telegram_cfg.get("chat_id", "")
@@ -230,7 +232,7 @@ async def process_stream_frame(payload: Dict[str, Any]):
                 growth_rate=d.get("growth_rate_pct_sec", 0.0)
             )
 
-    _, buffer = cv2.imencode(".jpg", annotated_frame, [int(cv2.IMWRITE_JPEG_QUALITY), 70])
+    _, buffer = cv2.imencode(".jpg", annotated_frame, [int(cv2.IMWRITE_JPEG_QUALITY), 75])
     out_b64 = base64.b64encode(buffer).decode("utf-8")
 
     return {
