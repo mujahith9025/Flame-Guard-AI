@@ -1,4 +1,4 @@
-// Industrial Multi-Camera CCTV Surveillance Center Controller v22.0 (High-Sensitivity Detection & Modal Video Support)
+// Industrial Multi-Camera CCTV Surveillance Center Controller v23.0 (High-Precision 640x480 Stream Engine)
 let ws = null;
 let isStreaming = false;
 let soundEnabled = true;
@@ -88,8 +88,8 @@ function renderSpatialHeatmap(detections) {
     detections.forEach(d => {
         if (!d.bbox) return;
         const [x1, y1, x2, y2] = d.bbox;
-        const cx = (x1 + x2) / 2 * (canvas.width / 480);
-        const cy = (y1 + y2) / 2 * (canvas.height / 360);
+        const cx = (x1 + x2) / 2 * (canvas.width / 640);
+        const cy = (y1 + y2) / 2 * (canvas.height / 480);
         const radius = Math.max((x2 - x1), (y2 - y1)) * 0.8;
 
         const grad = ctx.createRadialGradient(cx, cy, 5, cx, cy, radius);
@@ -263,16 +263,16 @@ function closeCamModal() {
     }
 }
 
-// Cloud & Local Dual-Engine Camera Stream Controller
+// High-Precision Camera Stream Controller
 async function startWebSocketStream() {
     if (isStreaming) return;
 
-    // 1. Request Browser Camera Access
+    // 1. Request High-Quality Browser Camera Stream
     try {
         localMediaStream = await navigator.mediaDevices.getUserMedia({
             video: {
-                width: { ideal: 480 },
-                height: { ideal: 360 },
+                width: { ideal: 640 },
+                height: { ideal: 480 },
                 facingMode: "user"
             },
             audio: false
@@ -295,10 +295,10 @@ async function startWebSocketStream() {
     startStreamBtn.disabled = true;
     stopStreamBtn.disabled = false;
 
-    // Canvas configuration
+    // Canvas configuration (Crisp 640x480 resolution for high-accuracy YOLO inference)
     const ctx = clientWebcamCanvas.getContext("2d");
-    clientWebcamCanvas.width = 480;
-    clientWebcamCanvas.height = 360;
+    clientWebcamCanvas.width = 640;
+    clientWebcamCanvas.height = 480;
 
     // 2. Open WebSocket Stream
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
@@ -315,14 +315,14 @@ async function startWebSocketStream() {
                 if (!ws || ws.readyState !== WebSocket.OPEN) return;
                 try {
                     if (clientWebcamVideo.videoWidth > 0) {
-                        ctx.drawImage(clientWebcamVideo, 0, 0, 480, 360);
-                        const frameB64 = clientWebcamCanvas.toDataURL("image/jpeg", 0.45);
+                        ctx.drawImage(clientWebcamVideo, 0, 0, 640, 480);
+                        const frameB64 = clientWebcamCanvas.toDataURL("image/jpeg", 0.75);
                         ws.send(JSON.stringify({ frame_b64: frameB64 }));
                     }
                 } catch (e) {
                     console.error("WebSocket frame send error:", e);
                 }
-            }, 120);
+            }, 100);
         };
 
         ws.onmessage = (event) => {
@@ -360,8 +360,8 @@ function startHttpFallbackStream() {
     }
 
     const ctx = clientWebcamCanvas.getContext("2d");
-    clientWebcamCanvas.width = 480;
-    clientWebcamCanvas.height = 360;
+    clientWebcamCanvas.width = 640;
+    clientWebcamCanvas.height = 480;
 
     frameSendInterval = setInterval(async () => {
         if (!isStreaming || isProcessingHttpFrame) return;
@@ -369,8 +369,8 @@ function startHttpFallbackStream() {
 
         try {
             if (clientWebcamVideo.videoWidth > 0) {
-                ctx.drawImage(clientWebcamVideo, 0, 0, 480, 360);
-                const frameB64 = clientWebcamCanvas.toDataURL("image/jpeg", 0.45);
+                ctx.drawImage(clientWebcamVideo, 0, 0, 640, 480);
+                const frameB64 = clientWebcamCanvas.toDataURL("image/jpeg", 0.75);
 
                 const resp = await fetch("/api/stream-frame", {
                     method: "POST",
@@ -388,7 +388,7 @@ function startHttpFallbackStream() {
         } finally {
             isProcessingHttpFrame = false;
         }
-    }, 150);
+    }, 120);
 }
 
 // Unified Render Payload Handler

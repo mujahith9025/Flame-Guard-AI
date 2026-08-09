@@ -30,17 +30,17 @@ class FireSmokeDetector:
         "person": (255, 165, 0)   # Orange (BGR)
     }
 
-    # Class-specific confidence thresholds for high-sensitivity fire detection
+    # Class-specific confidence thresholds for maximum fire sensitivity
     CLASS_CONF_THRESHOLDS = {
-        "fire": 0.10,   # Ultra-high sensitivity for flame detection
-        "smoke": 0.25,  # Balanced threshold for smoke
+        "fire": 0.05,   # Maximum sensitivity for flame detection
+        "smoke": 0.20,  # Balanced threshold for smoke
         "person": 0.50
     }
 
     def __init__(
         self,
         model_path: str = "best.pt",
-        conf_threshold: float = 0.15,
+        conf_threshold: float = 0.10,
         iou_threshold: float = 0.45,
         device: str = "cpu",
         alert_cooldown: int = 30
@@ -72,21 +72,21 @@ class FireSmokeDetector:
         self.track_history: Dict[int, Dict[str, float]] = {}
 
     @staticmethod
-    def detect_calibrated_flame_regions(img: cv2.Mat, min_area_pixels: int = 250) -> List[Dict[str, Any]]:
+    def detect_calibrated_flame_regions(img: cv2.Mat, min_area_pixels: int = 150) -> List[Dict[str, Any]]:
         """
-        Calibrated Flame Region Analysis: Detect bright fire/flame regions (Wide Orange/Red hue
-        with flexible saturation & brightness for screen / real fire flames).
+        Calibrated Flame Region Detector: Ultra-sensitive HSV color & brightness analysis
+        for identifying real fire, lighter flames, candles, and phone screen fire images.
         """
         if img is None:
             return []
 
         hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
 
-        # High-Sensitivity Fire HSV ranges (Orange / Red / Flame Yellow)
-        lower1 = np.array([0, 70, 130])
-        upper1 = np.array([28, 255, 255])
+        # Wide Fire HSV Color Ranges (Flame Red, Orange, Yellow-Orange)
+        lower1 = np.array([0, 40, 100])
+        upper1 = np.array([35, 255, 255])
 
-        lower2 = np.array([155, 70, 130])
+        lower2 = np.array([145, 40, 100])
         upper2 = np.array([180, 255, 255])
 
         mask1 = cv2.inRange(hsv, lower1, upper1)
@@ -106,7 +106,7 @@ class FireSmokeDetector:
                 x, y, w, h = cv2.boundingRect(cnt)
                 flame_boxes.append({
                     "class": "fire",
-                    "confidence": 0.88,
+                    "confidence": 0.92,
                     "track_id": None,
                     "growth_rate_pct_sec": 0.0,
                     "bbox": [x, y, x + w, y + h]
@@ -132,12 +132,12 @@ class FireSmokeDetector:
         fps = 1.0 / (self.curr_frame_time - self.prev_frame_time) if self.prev_frame_time > 0 else 0.0
         self.prev_frame_time = self.curr_frame_time
 
-        # Perform YOLOv8 ByteTrack Inference
+        # Perform YOLOv8 ByteTrack Inference with high sensitivity
         results = self.model.track(
             source=frame,
             tracker="bytetrack.yaml",
             persist=True,
-            conf=min(self.conf_threshold, 0.10),
+            conf=0.05,
             iou=self.iou_threshold,
             device=self.device,
             verbose=False
@@ -155,7 +155,7 @@ class FireSmokeDetector:
                 xyxy = box.xyxy[0].cpu().numpy().astype(int)
 
                 # Apply Class-Specific Confidence Calibration Filter
-                min_required_conf = self.CLASS_CONF_THRESHOLDS.get(raw_label, self.conf_threshold)
+                min_required_conf = self.CLASS_CONF_THRESHOLDS.get(raw_label, 0.05)
                 if conf < min_required_conf:
                     continue
 
@@ -272,7 +272,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Real-Time Fire & Smoke Detector")
     parser.add_argument("--source", type=str, default="0", help="Webcam index (0) or video file path")
     parser.add_argument("--weights", type=str, default="best.pt", help="Path to trained YOLOv8 weights")
-    parser.add_argument("--conf", type=float, default=0.15, help="Confidence threshold")
+    parser.add_argument("--conf", type=float, default=0.05, help="Confidence threshold")
     parser.add_argument("--save-output", type=str, default=None, help="Path to save annotated video output")
 
     args = parser.parse_args()
