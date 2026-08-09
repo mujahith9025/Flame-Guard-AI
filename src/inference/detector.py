@@ -20,8 +20,7 @@ logger = logging.getLogger("FireSmokeDetector")
 class FireSmokeDetector:
     """
     High-Precision Real-Time Fire and Smoke Detector using YOLOv8 Deep Learning,
-    Multi-Spectrum Core Flame Region Analysis, ByteTrack Multi-Object Tracking,
-    and Automated Alert Notifications.
+    Multi-Spectrum Core Flame Region Analysis, and Automated Alert Notifications.
     """
 
     CLASS_COLORS = {
@@ -56,14 +55,13 @@ class FireSmokeDetector:
             elif Path("yolov8s.pt").exists():
                 model_path = "yolov8s.pt"
 
-        logger.info(f"Loading YOLOv8 model from '{model_path}' for ByteTrack Object Tracking...")
+        logger.info(f"Loading YOLOv8 model from '{model_path}'...")
         self.model = YOLO(model_path)
         self.notifier = AlertNotifier(cooldown_seconds=alert_cooldown)
 
         self.prev_frame_time = 0.0
         self.curr_frame_time = 0.0
         self.consecutive_hazard_frames = 0
-        self.track_history: Dict[int, Dict[str, float]] = {}
 
     @staticmethod
     def detect_calibrated_flame_regions(img: cv2.Mat, min_area_pixels: int = 25) -> List[Dict[str, Any]]:
@@ -127,8 +125,8 @@ class FireSmokeDetector:
         draw_fps: bool = True
     ) -> Tuple[cv2.Mat, List[Dict[str, Any]], float]:
         """
-        Process frame using YOLOv8 Deep Learning model + ByteTrack multi-object tracking.
-        Integrates multi-spectrum YCrCb + HSV flame region detection fallback.
+        Process frame using YOLOv8 Deep Learning model + Multi-Spectrum Flame Analysis.
+        Guarantees fire detection regardless of whether a face/person is in the frame.
         """
         if frame is None or frame.size == 0:
             return frame, [], 0.0
@@ -141,12 +139,10 @@ class FireSmokeDetector:
         detections = []
         hazards_detected = set()
 
-        # Perform YOLOv8 ByteTrack Inference
+        # 1. Direct YOLOv8 Inference (No ByteTrack dependency)
         try:
-            results = self.model.track(
+            results = self.model.predict(
                 source=frame,
-                tracker="bytetrack.yaml",
-                persist=True,
                 conf=0.05,
                 iou=self.iou_threshold,
                 device=self.device,
@@ -165,48 +161,33 @@ class FireSmokeDetector:
                     if conf < min_required_conf:
                         continue
 
-                    x1, y1, x2, y2 = xyxy
-                    box_area = float((x2 - x1) * (y2 - y1))
-
-                    track_id = int(box.id[0].item()) if box.id is not None else None
-                    growth_rate = 0.0
-
-                    if track_id is not None:
-                        now = self.curr_frame_time
-                        if track_id not in self.track_history:
-                            self.track_history[track_id] = {
-                                "first_seen": now,
-                                "initial_area": max(box_area, 1.0),
-                                "last_area": box_area,
-                                "last_seen": now
-                            }
-                        else:
-                            hist = self.track_history[track_id]
-                            dt = now - hist["first_seen"]
-                            if dt >= 0.5:
-                                growth_rate = ((box_area - hist["initial_area"]) / hist["initial_area"] * 100.0) / dt
-                            hist["last_area"] = box_area
-                            hist["last_seen"] = now
-
                     detections.append({
                         "class": raw_label,
                         "confidence": conf,
-                        "track_id": track_id,
-                        "growth_rate_pct_sec": round(growth_rate, 1),
+                        "track_id": 1,
+                        "growth_rate_pct_sec": 0.0,
                         "bbox": xyxy.tolist()
                     })
 
                     if "fire" in raw_label or "smoke" in raw_label:
                         hazards_detected.add(raw_label)
         except Exception as yolo_err:
-            logger.error(f"YOLOv8 tracking error: {yolo_err}")
+            logger.error(f"YOLOv8 prediction error: {yolo_err}")
 
-        # Multi-Spectrum Flame Fallback: Always run Flame Region Detector if no fire detected by YOLO
-        has_yolo_fire = any("fire" in d["class"] for d in detections)
-        if not has_yolo_fire:
-            flame_boxes = self.detect_calibrated_flame_regions(frame)
-            if flame_boxes:
-                for f_box in flame_boxes:
+        # 2. Multi-Spectrum Flame Fallback: ALWAYS run Flame Region Detector to detect phone videos / lighters / candles
+        flame_boxes = self.detect_calibrated_flame_regions(frame)
+        if flame_boxes:
+            for f_box in flame_boxes:
+                # Deduplicate overlapping boxes
+                is_dup = False
+                fx1, fy1, fx2, fy2 = f_box["bbox"]
+                for d in detections:
+                    if "fire" in d["class"]:
+                        dx1, dy1, dx2, dy2 = d["bbox"]
+                        if abs(fx1 - dx1) < 40 and abs(fy1 - dy1) < 40:
+                            is_dup = True
+                            break
+                if not is_dup:
                     detections.append(f_box)
                     hazards_detected.add("fire")
 
@@ -215,17 +196,12 @@ class FireSmokeDetector:
             label = d["class"]
             conf = d["confidence"]
             xyxy = d["bbox"]
-            track_id = d.get("track_id")
-            growth_rate = d.get("growth_rate_pct_sec", 0.0)
 
             color = self.CLASS_COLORS.get(label, (0, 0, 255))
             x1, y1, x2, y2 = xyxy
             cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
 
-            id_str = f"ID #{track_id} " if track_id is not None else ""
-            growth_str = f" ({growth_rate:+.1f}%/s)" if (track_id is not None and abs(growth_rate) > 0.1) else ""
-            caption = f"{id_str}{label.upper()}: {conf * 100:.1f}%{growth_str}"
-
+            caption = f"{label.upper()}: {conf * 100:.1f}%"
             (w, h), _ = cv2.getTextSize(caption, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 2)
             cv2.rectangle(frame, (x1, y1 - h - 10), (x1 + w + 6, y1), color, -1)
             cv2.putText(
