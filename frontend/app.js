@@ -1,4 +1,4 @@
-// Industrial Multi-Camera CCTV Surveillance Center Controller v23.0 (High-Precision 640x480 Stream Engine)
+// Industrial Multi-Camera CCTV Surveillance Center Controller v24.0 (Multi-Spectrum Detection & Live Stream Synchronizer)
 let ws = null;
 let isStreaming = false;
 let soundEnabled = true;
