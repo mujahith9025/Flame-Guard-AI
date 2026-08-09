@@ -257,26 +257,82 @@ async def detect_uploaded_image(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail="Invalid image file format.")
 
     detector = get_detector()
-    annotated_img, detections, _ = detector.process_frame(img.copy(), config=state["config"], draw_fps=False)
-
+    detections = []
     has_fire_or_smoke = False
     hazards_found = set()
 
-    for d in detections:
-        cls_name = d["class"].lower()
-        if "fire" in cls_name or "smoke" in cls_name:
-            has_fire_or_smoke = True
-            hazards_found.add(cls_name.upper())
-            log_hazard(
-                hazard_type=d["class"],
-                confidence=d["confidence"],
-                source="Image Upload",
-                frame_count=1,
-                track_id=d.get("track_id"),
-                growth_rate=d.get("growth_rate_pct_sec", 0.0)
-            )
+    annotated_img = img.copy()
 
-    _, buffer = cv2.imencode(".jpg", annotated_img)
+    # 1. High-Sensitivity YOLOv8 Neural Network Inference for Uploaded Media
+    try:
+        results = detector.model.predict(
+            source=img,
+            conf=0.10,
+            device=detector.device,
+            verbose=False
+        )
+
+        if results and len(results) > 0:
+            boxes = results[0].boxes
+            for box in boxes:
+                cls_id = int(box.cls[0].item())
+                raw_label = detector.model.names.get(cls_id, f"class_{cls_id}").lower()
+                conf = float(box.conf[0].item())
+                xyxy = box.xyxy[0].cpu().numpy().astype(int)
+
+                if conf >= 0.10:
+                    detections.append({
+                        "class": raw_label,
+                        "confidence": conf,
+                        "track_id": 1,
+                        "bbox": xyxy.tolist()
+                    })
+                    if "fire" in raw_label or "smoke" in raw_label:
+                        has_fire_or_smoke = True
+                        hazards_found.add(raw_label.upper())
+    except Exception as e:
+        logger.error(f"Media file YOLO prediction error: {e}")
+
+    # 2. Universal Calibrated Flame Detector Fallback for Media Files
+    flame_boxes = FireSmokeDetector.detect_calibrated_flame_regions(img, min_area_pixels=150)
+    if flame_boxes:
+        for f_box in flame_boxes:
+            is_dup = False
+            fx1, fy1, fx2, fy2 = f_box["bbox"]
+            for d in detections:
+                if "fire" in d["class"]:
+                    dx1, dy1, dx2, dy2 = d["bbox"]
+                    if abs(fx1 - dx1) < 50 and abs(fy1 - dy1) < 50:
+                        is_dup = True
+                        break
+            if not is_dup:
+                detections.append(f_box)
+                has_fire_or_smoke = True
+                hazards_found.add("FIRE")
+
+    # 3. Draw High-Contrast Bounding Boxes on Annotated Result Image
+    for d in detections:
+        label = d["class"].upper()
+        conf = d["confidence"]
+        x1, y1, x2, y2 = d["bbox"]
+        color = (0, 0, 255) if "FIRE" in label else ((0, 165, 255) if "PERSON" in label else (128, 128, 128))
+
+        cv2.rectangle(annotated_img, (x1, y1), (x2, y2), color, 3)
+        caption = f"{label}: {conf * 100:.1f}%"
+        (w, h), _ = cv2.getTextSize(caption, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)
+        cv2.rectangle(annotated_img, (x1, y1 - h - 12), (x1 + w + 8, y1), color, -1)
+        cv2.putText(annotated_img, caption, (x1 + 4, y1 - 6), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2, cv2.LINE_AA)
+
+        log_hazard(
+            hazard_type=d["class"],
+            confidence=d["confidence"],
+            source="Media File Inspector",
+            frame_count=1,
+            track_id=1,
+            growth_rate=15.0
+        )
+
+    _, buffer = cv2.imencode(".jpg", annotated_img, [int(cv2.IMWRITE_JPEG_QUALITY), 85])
     b64_image = base64.b64encode(buffer).decode("utf-8")
 
     return {
