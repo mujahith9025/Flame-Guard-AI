@@ -131,11 +131,11 @@ class FireSmokeDetector:
         detections = []
         hazards_detected = set()
 
-        # 1. Direct YOLOv8 Inference
+        # 1. Direct High-Precision YOLOv8 Neural Network Inference
         try:
             results = self.model.predict(
                 source=frame,
-                conf=0.05,
+                conf=self.conf_threshold,
                 iou=self.iou_threshold,
                 device=self.device,
                 verbose=False
@@ -149,7 +149,7 @@ class FireSmokeDetector:
                     conf = float(box.conf[0].item())
                     xyxy = box.xyxy[0].cpu().numpy().astype(int)
 
-                    min_required_conf = self.CLASS_CONF_THRESHOLDS.get(raw_label, 0.05)
+                    min_required_conf = self.CLASS_CONF_THRESHOLDS.get(raw_label, 0.25)
                     if conf < min_required_conf:
                         continue
 
@@ -165,23 +165,6 @@ class FireSmokeDetector:
                         hazards_detected.add(raw_label)
         except Exception as yolo_err:
             logger.error(f"YOLOv8 prediction error: {yolo_err}")
-
-        # 2. Universal Flame Region Detector Fallback
-        flame_boxes = self.detect_calibrated_flame_regions(frame)
-        if flame_boxes:
-            for f_box in flame_boxes:
-                # Deduplicate overlapping boxes
-                is_dup = False
-                fx1, fy1, fx2, fy2 = f_box["bbox"]
-                for d in detections:
-                    if "fire" in d["class"]:
-                        dx1, dy1, dx2, dy2 = d["bbox"]
-                        if abs(fx1 - dx1) < 40 and abs(fy1 - dy1) < 40:
-                            is_dup = True
-                            break
-                if not is_dup:
-                    detections.append(f_box)
-                    hazards_detected.add("fire")
 
         # Render Bounding Boxes on Frame
         for d in detections:

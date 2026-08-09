@@ -487,7 +487,7 @@ async function startWebSocketStream() {
     clientWebcamCanvas.width = 640;
     clientWebcamCanvas.height = 480;
 
-    // High-Speed Loop: Draw Bounding Box, Add Log Entry, Play Siren & Send Telegram Alert
+    // High-Speed Neural Network Frame Processing Loop
     frameSendInterval = setInterval(async () => {
         if (!isStreaming) return;
 
@@ -495,20 +495,7 @@ async function startWebSocketStream() {
             if (clientWebcamVideo.videoWidth > 0 && clientWebcamVideo.videoHeight > 0) {
                 ctx.drawImage(clientWebcamVideo, 0, 0, 640, 480);
 
-                // 1. Run Client-Side Flame Detection
-                const clientDetections = detectClientFlameRegions(ctx, 640, 480);
-                if (clientDetections.length > 0) {
-                    renderBoundingBoxes(clientDetections);
-                    renderSpatialHeatmap(clientDetections);
-                    updateStatusPopups(true, "🚨 CRITICAL INCIDENT // FIRE DETECTED (ZONE 1)");
-                    logClientIncident("FIRE", "96.0%", "CAM 01 // MAIN FACILITY BAY");
-                } else {
-                    renderBoundingBoxes([]);
-                    renderSpatialHeatmap([]);
-                    updateStatusPopups(false, null);
-                }
-
-                // 2. Send Frame to Server for PyTorch Verification
+                // Send Frame to PyTorch YOLOv8 AI Server for Neural Network Inference
                 if (!isProcessingFrame) {
                     isProcessingFrame = true;
                     const frameB64 = clientWebcamCanvas.toDataURL("image/jpeg", 0.70);
@@ -532,7 +519,7 @@ async function startWebSocketStream() {
     }, 100);
 }
 
-// Unified Stream Payload Handler
+// Unified Stream Payload Handler (Relying 100% on PyTorch YOLOv8 Neural Network Predictions)
 function handleStreamPayload(data) {
     if (data.frame_b64) {
         streamCanvas.src = data.frame_b64;
@@ -553,7 +540,11 @@ function handleStreamPayload(data) {
         renderBoundingBoxes(data.detections);
         renderSpatialHeatmap(data.detections);
         updateStatusPopups(true, data.status_message);
-        logClientIncident("FIRE", "96.0%", "Live Camera Stream");
+        logClientIncident("FIRE", `${(data.detections[0].confidence * 100).toFixed(1)}%`, "Live Camera Stream");
+    } else {
+        renderBoundingBoxes([]);
+        renderSpatialHeatmap([]);
+        updateStatusPopups(false, null);
     }
 }
 
