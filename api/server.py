@@ -158,14 +158,16 @@ async def serve_login():
 
 @app.get("/api/status")
 async def get_system_status():
-    try:
-        detector = get_detector()
+    """
+    Lightweight instant status API. Never triggers blocking model load.
+    """
+    if state["detector"] is not None:
+        detector = state["detector"]
         model_name = detector.model.model_name if hasattr(detector.model, 'model_name') else "YOLOv8s"
         conf_thresh = detector.conf_threshold
-    except Exception as e:
-        logger.error(f"Detector initialization exception in status API: {e}")
+    else:
         model_name = "YOLOv8s Engine"
-        conf_thresh = 0.20
+        conf_thresh = float(state["config"].get("model", {}).get("confidence_threshold", 0.20))
 
     telegram_cfg = state["config"].get("alerts", {}).get("telegram", {})
     telegram_id = telegram_cfg.get("chat_id", "")
@@ -364,18 +366,17 @@ async def test_telegram_push(payload: Dict[str, Any]):
 
 @app.post("/api/config")
 async def update_config(payload: Dict[str, Any]):
-    detector = get_detector()
-
-    if "confidence_threshold" in payload:
-        detector.conf_threshold = float(payload["confidence_threshold"])
-    if "iou_threshold" in payload:
-        detector.iou_threshold = float(payload["iou_threshold"])
+    if "confidence_threshold" in payload and state["detector"] is not None:
+        state["detector"].conf_threshold = float(payload["confidence_threshold"])
+    if "iou_threshold" in payload and state["detector"] is not None:
+        state["detector"].iou_threshold = float(payload["iou_threshold"])
 
     if "alerts" not in state["config"]:
         state["config"]["alerts"] = {}
 
     if "cooldown_seconds" in payload:
-        detector.notifier.cooldown_seconds = int(payload["cooldown_seconds"])
+        if state["detector"] is not None:
+            state["detector"].notifier.cooldown_seconds = int(payload["cooldown_seconds"])
         state["config"]["alerts"]["cooldown_seconds"] = int(payload["cooldown_seconds"])
     if "consecutive_frames_threshold" in payload:
         state["config"]["alerts"]["consecutive_frames_threshold"] = int(payload["consecutive_frames_threshold"])
@@ -399,7 +400,6 @@ async def update_config(payload: Dict[str, Any]):
         state["config"]["alerts"]["sms"]["to_number"] = str(payload["sms_to_number"]).strip()
         state["config"]["alerts"]["sms"]["enabled"] = True
 
-    # Persist config safely (with error handling for cloud container read-only filesystems if any)
     try:
         with open(CONFIG_PATH, "w", encoding="utf-8") as f:
             yaml.safe_dump(state["config"], f)

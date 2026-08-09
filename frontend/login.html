@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Outfit:wght@500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="/static/style.css?v=19.0">
+    <link rel="stylesheet" href="/static/style.css?v=21.0">
 </head>
 <body class="cctv-theme login-body">
     <div class="login-container">
@@ -178,22 +178,37 @@
 
             // Check if user has an existing saved Telegram ID & Name on server / localStorage
             async function checkAccountProfile() {
+                let savedId = localStorage.getItem("flameguard_telegram_id") || "";
+                let savedName = localStorage.getItem("flameguard_telegram_name") || "";
+
+                if (savedId && savedId.trim() !== "") {
+                    currentChatId = savedId.trim();
+                    currentUserName = savedName.trim() || ("User #" + currentChatId);
+                    showUserProfile(currentChatId, currentUserName);
+                } else {
+                    showAccountLinkForm();
+                }
+
                 try {
-                    const resp = await fetch("/api/status");
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 2000);
+
+                    const resp = await fetch("/api/status", { signal: controller.signal });
+                    clearTimeout(timeoutId);
                     const data = await resp.json();
 
-                    const savedId = data.registered_telegram_id || localStorage.getItem("flameguard_telegram_id");
-                    const savedName = data.registered_telegram_name || localStorage.getItem("flameguard_telegram_name") || (savedId ? "User #" + savedId : "");
+                    const serverId = data.registered_telegram_id || savedId;
+                    const serverName = data.registered_telegram_name || savedName || (serverId ? "User #" + serverId : "");
 
-                    if (savedId && savedId.trim() !== "") {
-                        currentChatId = savedId.trim();
-                        currentUserName = savedName.trim() || ("User #" + currentChatId);
+                    if (serverId && serverId.trim() !== "") {
+                        currentChatId = serverId.trim();
+                        currentUserName = serverName.trim() || ("User #" + currentChatId);
                         showUserProfile(currentChatId, currentUserName);
-                    } else {
-                        showAccountLinkForm();
                     }
                 } catch (err) {
-                    showAccountLinkForm();
+                    if (!savedId) {
+                        showAccountLinkForm();
+                    }
                 }
             }
 
