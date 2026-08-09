@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FLAME-GUARD AI // Telegram User Account Portal</title>
+    <!-- Google Fonts: Inter & Outfit -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Outfit:wght@500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/style.css?v=19.0">
+</head>
+<body class="cctv-theme login-body">
+    <div class="login-container">
+        <div class="login-card">
+            <!-- Header Brand -->
+            <div class="login-brand">
+                <div class="telegram-icon-badge">
+                    <i class="fa-brands fa-telegram"></i>
+                </div>
+                <h2>FLAME-GUARD AI</h2>
+                <p class="brand-subtitle">TELEGRAM USER ACCOUNT & NOTIFICATION PORTAL</p>
+            </div>
+
+            <!-- STATE 1: ACTIVE CONNECTED USER PROFILE CARD -->
+            <div class="user-profile-card hidden" id="userProfileCard">
+                <div class="profile-header">
+                    <div class="profile-avatar">
+                        <i class="fa-solid fa-user-shield"></i>
+                    </div>
+                    <div class="profile-info">
+                        <span class="status-pill connected"><i class="fa-solid fa-circle"></i> TELEGRAM LINKED</span>
+                        <div class="name-edit-row">
+                            <h3 id="displayUserName">Security Officer</h3>
+                            <button class="icon-btn-edit" id="quickEditNameBtn" title="Edit User Name"><i class="fa-solid fa-pen-to-square"></i></button>
+                        </div>
+                        <p class="profile-sub" id="displayUserId">TELEGRAM USER ID: 8507631249</p>
+                    </div>
+                </div>
+
+                <!-- Inline Name Edit Form (Hidden by default, toggles on Edit click) -->
+                <div class="inline-edit-box hidden" id="inlineEditBox">
+                    <label><i class="fa-solid fa-pen"></i> ENTER NEW USER NAME:</label>
+                    <div class="inline-edit-group">
+                        <input type="text" id="editUserNameInput" placeholder="e.g. Officer Mujahith" class="sleek-input text-left">
+                        <button type="button" class="cctv-btn btn-green" id="saveNewNameBtn"><i class="fa-solid fa-check"></i> SAVE</button>
+                        <button type="button" class="cctv-btn btn-red" id="cancelEditNameBtn"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                </div>
+
+                <div class="profile-details-grid">
+                    <div class="detail-item">
+                        <span class="detail-label">REGISTERED USER NAME</span>
+                        <span class="detail-value text-cyan" id="gridUserName">User #8507631249</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">OFFICIAL TELEGRAM BOT</span>
+                        <span class="detail-value text-cyan">@fireflame_guard_bot</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">ALERT DESTINATION</span>
+                        <span class="detail-value text-green">Mobile App Push & Sound</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">HAZARD MONITORING</span>
+                        <span class="detail-value text-amber">Active 24/7 (Zone 01-04)</span>
+                    </div>
+                </div>
+
+                <div class="login-btn-group">
+                    <button type="button" class="cctv-btn btn-cyan" id="profileTestPushBtn">
+                        <i class="fa-solid fa-paper-plane"></i> SEND TEST PUSH TO PHONE
+                    </button>
+
+                    <button type="button" class="cctv-btn btn-telegram" id="editNameBtn">
+                        <i class="fa-solid fa-user-pen"></i> CHANGE USER NAME
+                    </button>
+                    
+                    <button type="button" class="cctv-btn btn-red" id="changeAccountBtn">
+                        <i class="fa-solid fa-right-from-bracket"></i> CHANGE TELEGRAM USER ID
+                    </button>
+                </div>
+            </div>
+
+            <!-- STATE 2: TELEGRAM ACCOUNT LINKING FORM -->
+            <div class="account-link-section" id="accountLinkSection">
+                <!-- STEP 1 CARD -->
+                <div class="step-card">
+                    <div class="step-header">
+                        <span class="step-badge">STEP 1</span>
+                        <h4>START TELEGRAM BOT</h4>
+                    </div>
+                    <a href="https://t.me/fireflame_guard_bot" target="_blank" class="cctv-btn btn-telegram full-width-btn">
+                        <i class="fa-brands fa-telegram"></i> OPEN @fireflame_guard_bot & CLICK START
+                    </a>
+                    <small class="step-hint">⚠️ Required First Step: Open bot in Telegram app & click <strong>START</strong>!</small>
+                </div>
+
+                <!-- STEP 2 CARD -->
+                <form id="telegramLoginForm" class="login-form">
+                    <div class="step-card">
+                        <div class="step-header">
+                            <span class="step-badge">STEP 2</span>
+                            <h4>ENTER USER NAME & TELEGRAM USER ID</h4>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label><i class="fa-solid fa-user"></i> USER NAME / OFFICER NAME (OPTIONAL):</label>
+                            <input type="text" id="telegramUserName" placeholder="e.g. Mujahith (Defaults to User #ID if empty)" class="sleek-input text-left">
+                        </div>
+
+                        <div class="form-group">
+                            <label><i class="fa-solid fa-id-badge"></i> TELEGRAM USER ID (REQUIRED):</label>
+                            <input type="text" id="telegramChatId" placeholder="e.g. 8507631249" required value="8507631249" class="sleek-input">
+                        </div>
+
+                        <!-- How-To Guide Box -->
+                        <div class="info-guide-box">
+                            <h4><i class="fa-solid fa-circle-info text-cyan"></i> HOW TO FIND YOUR TELEGRAM USER ID:</h4>
+                            <ol class="guide-steps">
+                                <li>Search for <strong>@userinfobot</strong> in Telegram search bar.</li>
+                                <li>Send any message (e.g. <code>hi</code>) to the bot.</li>
+                                <li>Copy your numeric <strong>Id</strong> (e.g. <code>8507631249</code>) & paste it above!</li>
+                            </ol>
+                        </div>
+                    </div>
+
+                    <div class="login-btn-group">
+                        <button type="submit" class="cctv-btn btn-green full-width-btn" id="subscribeBtn">
+                            <i class="fa-solid fa-link"></i> LINK TELEGRAM ACCOUNT & SAVE PROFILE
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Status Popup Banner -->
+            <div class="login-status-banner hidden" id="loginStatusBanner">
+                <i class="fa-solid fa-circle-check" id="statusIcon"></i>
+                <span id="statusMessage">Subscribed successfully!</span>
+            </div>
+
+            <div class="login-footer">
+                <a href="/" class="back-link"><i class="fa-solid fa-arrow-left"></i> BACK TO CCTV MATRIX DASHBOARD</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Login & Account Profile Controller Script -->
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const userProfileCard = document.getElementById("userProfileCard");
+            const accountLinkSection = document.getElementById("accountLinkSection");
+            const displayUserName = document.getElementById("displayUserName");
+            const displayUserId = document.getElementById("displayUserId");
+            const gridUserName = document.getElementById("gridUserName");
+
+            const telegramChatId = document.getElementById("telegramChatId");
+            const telegramUserName = document.getElementById("telegramUserName");
+
+            const form = document.getElementById("telegramLoginForm");
+            const profileTestPushBtn = document.getElementById("profileTestPushBtn");
+            const changeAccountBtn = document.getElementById("changeAccountBtn");
+
+            const editNameBtn = document.getElementById("editNameBtn");
+            const quickEditNameBtn = document.getElementById("quickEditNameBtn");
+            const inlineEditBox = document.getElementById("inlineEditBox");
+            const editUserNameInput = document.getElementById("editUserNameInput");
+            const saveNewNameBtn = document.getElementById("saveNewNameBtn");
+            const cancelEditNameBtn = document.getElementById("cancelEditNameBtn");
+
+            const statusBanner = document.getElementById("loginStatusBanner");
+            const statusIcon = document.getElementById("statusIcon");
+            const statusMessage = document.getElementById("statusMessage");
+
+            let currentChatId = "";
+            let currentUserName = "";
+
+            // Check if user has an existing saved Telegram ID & Name on server / localStorage
+            async function checkAccountProfile() {
+                try {
+                    const resp = await fetch("/api/status");
+                    const data = await resp.json();
+
+                    const savedId = data.registered_telegram_id || localStorage.getItem("flameguard_telegram_id");
+                    const savedName = data.registered_telegram_name || localStorage.getItem("flameguard_telegram_name") || (savedId ? "User #" + savedId : "");
+
+                    if (savedId && savedId.trim() !== "") {
+                        currentChatId = savedId.trim();
+                        currentUserName = savedName.trim() || ("User #" + currentChatId);
+                        showUserProfile(currentChatId, currentUserName);
+                    } else {
+                        showAccountLinkForm();
+                    }
+                } catch (err) {
+                    showAccountLinkForm();
+                }
+            }
+
+            function showUserProfile(chatId, userName) {
+                const finalName = userName && userName.trim() ? userName.trim() : ("User #" + chatId);
+                displayUserName.innerText = finalName;
+                displayUserId.innerText = "TELEGRAM USER ID: " + chatId;
+                gridUserName.innerText = finalName;
+
+                telegramChatId.value = chatId;
+                telegramUserName.value = finalName.startsWith("User #") ? "" : finalName;
+
+                userProfileCard.classList.remove("hidden");
+                accountLinkSection.classList.add("hidden");
+                inlineEditBox.classList.add("hidden");
+            }
+
+            function showAccountLinkForm() {
+                userProfileCard.classList.add("hidden");
+                accountLinkSection.classList.remove("hidden");
+            }
+
+            // Save Telegram User ID & User Name
+            form.addEventListener("submit", async (e) => {
+                e.preventDefault();
+                const chatId = telegramChatId.value.trim();
+                const rawName = telegramUserName.value.trim();
+                const userName = rawName ? rawName : ("User #" + chatId);
+
+                await updateAccountProfile(chatId, userName);
+            });
+
+            async function updateAccountProfile(chatId, userName) {
+                try {
+                    const resp = await fetch("/api/config", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            telegram_chat_id: chatId,
+                            telegram_user_name: userName
+                        })
+                    });
+                    const res = await resp.json();
+                    
+                    localStorage.setItem("flameguard_telegram_id", chatId);
+                    localStorage.setItem("flameguard_telegram_name", userName);
+
+                    currentChatId = chatId;
+                    currentUserName = userName;
+
+                    statusBanner.className = "login-status-banner safe";
+                    statusIcon.className = "fa-solid fa-circle-check";
+                    statusMessage.innerText = "✅ USER PROFILE UPDATED: " + userName + " (" + chatId + ")";
+                    statusBanner.classList.remove("hidden");
+
+                    showUserProfile(currentChatId, currentUserName);
+                } catch (err) {
+                    statusBanner.className = "login-status-banner hazard";
+                    statusIcon.className = "fa-solid fa-triangle-exclamation";
+                    statusMessage.innerText = "Failed to save profile: " + err;
+                    statusBanner.classList.remove("hidden");
+                }
+            }
+
+            // Name Edit Toggle listeners
+            const openNameEditor = () => {
+                editUserNameInput.value = currentUserName.startsWith("User #") ? "" : currentUserName;
+                inlineEditBox.classList.remove("hidden");
+                editUserNameInput.focus();
+            };
+
+            editNameBtn.addEventListener("click", openNameEditor);
+            quickEditNameBtn.addEventListener("click", openNameEditor);
+
+            cancelEditNameBtn.addEventListener("click", () => {
+                inlineEditBox.classList.add("hidden");
+            });
+
+            saveNewNameBtn.addEventListener("click", async () => {
+                const newName = editUserNameInput.value.trim();
+                const finalName = newName ? newName : ("User #" + currentChatId);
+                await updateAccountProfile(currentChatId, finalName);
+            });
+
+            // Dispatch Live Test Push Message from User Profile
+            profileTestPushBtn.addEventListener("click", async () => {
+                if (!currentChatId) return;
+
+                try {
+                    const resp = await fetch("/api/test-telegram", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            chat_id: currentChatId,
+                            user_name: currentUserName
+                        })
+                    });
+                    const res = await resp.json();
+                    if (res.success) {
+                        statusBanner.className = "login-status-banner safe";
+                        statusIcon.className = "fa-solid fa-circle-check";
+                        statusMessage.innerText = "📱 TEST PUSH SENT TO " + currentUserName.toUpperCase() + " TELEGRAM PHONE APP!";
+                        statusBanner.classList.remove("hidden");
+                    } else {
+                        statusBanner.className = "login-status-banner hazard";
+                        statusIcon.className = "fa-solid fa-triangle-exclamation";
+                        statusMessage.innerText = res.detail;
+                        statusBanner.classList.remove("hidden");
+                    }
+                } catch (err) {
+                    alert("Test notification failed: " + err);
+                }
+            });
+
+            // Edit Profile / Change User ID
+            changeAccountBtn.addEventListener("click", () => {
+                showAccountLinkForm();
+                statusBanner.classList.add("hidden");
+            });
+
+            checkAccountProfile();
+        });
+    </script>
+</body>
+</html>

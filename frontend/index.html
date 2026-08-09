@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FLAME-GUARD AI // Autonomous Multi-Camera Surveillance System</title>
+    <!-- Google Fonts: Inter & Outfit -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Outfit:wght@500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/style.css?v=16.0">
+</head>
+<body class="cctv-theme">
+    <div class="cctv-layout-container">
+        <!-- CCTV Top Control Header -->
+        <header class="cctv-header">
+            <div class="cctv-brand">
+                <div class="brand-cam-icon">
+                    <i class="fa-solid fa-fire-flame-curved"></i>
+                </div>
+                <div class="brand-text">
+                    <h1>FLAME-GUARD AI</h1>
+                    <p>AUTONOMOUS MULTI-CAMERA COMPUTER VISION SURVEILLANCE ENGINE</p>
+                </div>
+            </div>
+
+            <!-- Global Emergency Status Banner -->
+            <div class="cctv-alert-banner safe" id="globalStatusBanner">
+                <span class="rec-dot"></span>
+                <i class="fa-solid fa-shield-halved" id="bannerIcon"></i>
+                <span id="bannerText">[ STATUS: NORMAL ] ✅ NO HAZARD SIGNATURES DETECTED</span>
+            </div>
+
+            <div class="cctv-header-actions">
+                <!-- Live Date & Clock Badge -->
+                <div class="clock-badge">
+                    <i class="fa-regular fa-clock"></i>
+                    <span id="liveClockDisplay">2026-08-08 20:54:35</span>
+                </div>
+
+                <!-- Compact Sound Toggle (Icon + ON/OFF) -->
+                <button class="cctv-btn-toggle" id="audioToggleBtn">
+                    <i class="fa-solid fa-volume-high" id="audioIcon"></i>
+                    <span id="audioText">ON</span>
+                </button>
+
+                <!-- Event Logs Drawer Trigger Button -->
+                <button class="cctv-btn-drawer" id="toggleDrawerBtn">
+                    <i class="fa-solid fa-list-check"></i> EVENT LOGS
+                </button>
+
+                <!-- User Account Navigation Button -->
+                <a href="/login" class="cctv-btn-drawer">
+                    <i class="fa-solid fa-user-shield"></i> ACCOUNT
+                </a>
+            </div>
+        </header>
+
+        <!-- CCTV Metric Counter Toolbar -->
+        <section class="cctv-metrics-toolbar">
+            <div class="cctv-metric-tile">
+                <span class="tile-label">AI DETECTOR ENGINE</span>
+                <h3 id="metricModel">YOLOv8s + ByteTrack</h3>
+            </div>
+
+            <div class="cctv-metric-tile">
+                <span class="tile-label">CAM 01 STREAM FPS</span>
+                <h3 id="metricFps">0.0 FPS</h3>
+            </div>
+
+            <div class="cctv-metric-tile danger">
+                <span class="tile-label">FIRE HAZARDS LOGGED</span>
+                <h3 id="metricFire">0</h3>
+            </div>
+
+            <div class="cctv-metric-tile warning">
+                <span class="tile-label">SMOKE HAZARDS LOGGED</span>
+                <h3 id="metricSmoke">0</h3>
+            </div>
+
+            <div class="cctv-metric-tile purple">
+                <span class="tile-label">MAX GROWTH VELOCITY</span>
+                <h3 id="metricGrowth">0.0%/s</h3>
+            </div>
+        </section>
+
+        <!-- Main Workspace: Full-Width 4-Camera Grid Workspace -->
+        <main class="cctv-main-workspace">
+            <section class="cctv-panel full-panel">
+                <div class="cctv-tabs-bar">
+                    <button class="cctv-tab active" data-tab="tab-stream">
+                        <i class="fa-solid fa-border-all"></i> 4-CAMERA MATRIX FEED
+                    </button>
+                    <button class="cctv-tab" data-tab="tab-upload">
+                        <i class="fa-solid fa-file-video"></i> MEDIA FILE INSPECTOR
+                    </button>
+                    <button class="cctv-tab" data-tab="tab-settings">
+                        <i class="fa-solid fa-sliders"></i> THRESHOLD & ALERT CONTACTS
+                    </button>
+                </div>
+
+                <!-- Tab 1: Full-Width Multi-Camera Grid -->
+                <div class="cctv-tab-content active" id="tab-stream">
+                    <div class="cctv-matrix-grid">
+                        <!-- Camera Feed 1: Primary AI YOLO Video Stream -->
+                        <div class="cam-feed-tile active-feed" id="camTile1">
+                            <div class="cam-tile-header">
+                                <span><i class="fa-solid fa-circle-dot live-icon"></i> CAM 01 // MAIN FACILITY BAY</span>
+                                <div class="header-right-tools">
+                                    <span class="cam-badge" id="streamHazardBadge">NORMAL</span>
+                                    <button class="cam-expand-btn" title="Expand View" onclick="expandCamFeed('CAM 01 // MAIN FACILITY BAY')"><i class="fa-solid fa-expand"></i></button>
+                                </div>
+                            </div>
+
+                            <div class="cam-viewport" id="viewport1">
+                                <img id="streamCanvas" src="https://images.unsplash.com/photo-1517649763962-0c623266010b?w=800&auto=format&fit=crop&q=60" alt="Cam 01 Feed">
+                                
+                                <!-- Heatmap Canvas Overlay -->
+                                <canvas id="heatmapCanvas" class="heatmap-overlay-canvas"></canvas>
+
+                                <!-- Thermal Spot Temp Badge -->
+                                <div class="thermal-temp-badge" id="spotTempBadge">SPOT TEMP: 32.4°C [SAFE]</div>
+
+                                <div class="stream-placeholder" id="streamPlaceholder">
+                                    <i class="fa-solid fa-video-slash"></i>
+                                    <p>CAM 01 FEED DISCONNECTED. CLICK 'START MATRIX FEED' BELOW.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Camera Feed 2: Thermal Infrared Simulation -->
+                        <div class="cam-feed-tile" id="camTile2">
+                            <div class="cam-tile-header">
+                                <span><i class="fa-solid fa-temperature-full"></i> CAM 02 // THERMAL IR MATRIX</span>
+                                <div class="header-right-tools">
+                                    <span class="cam-badge safe">NORMAL</span>
+                                    <button class="cam-expand-btn" title="Expand View" onclick="expandCamFeed('CAM 02 // THERMAL IR MATRIX')"><i class="fa-solid fa-expand"></i></button>
+                                </div>
+                            </div>
+                            <div class="cam-viewport thermal-sim">
+                                <div class="thermal-overlay">
+                                    <i class="fa-solid fa-eye text-cyan"></i>
+                                    <p>IR THERMAL SCANNING ACTIVE // 24.5°C NORMAL</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Camera Feed 3: Warehouse High Bay -->
+                        <div class="cam-feed-tile" id="camTile3">
+                            <div class="cam-tile-header">
+                                <span><i class="fa-solid fa-warehouse"></i> CAM 03 // WAREHOUSE BAY 04</span>
+                                <div class="header-right-tools">
+                                    <span class="cam-badge safe">NORMAL</span>
+                                    <button class="cam-expand-btn" title="Expand View" onclick="expandCamFeed('CAM 03 // WAREHOUSE BAY 04')"><i class="fa-solid fa-expand"></i></button>
+                                </div>
+                            </div>
+                            <div class="cam-viewport static-sim">
+                                <div class="thermal-overlay">
+                                    <i class="fa-solid fa-shield-halved text-green"></i>
+                                    <p>PERIMETER CLEAR // SENSOR ONLINE</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Camera Feed 4: Boiler Room Perimeter -->
+                        <div class="cam-feed-tile" id="camTile4">
+                            <div class="cam-tile-header">
+                                <span><i class="fa-solid fa-fire-burner"></i> CAM 04 // BOILER PERIMETER</span>
+                                <div class="header-right-tools">
+                                    <span class="cam-badge safe">NORMAL</span>
+                                    <button class="cam-expand-btn" title="Expand View" onclick="expandCamFeed('CAM 04 // BOILER PERIMETER')"><i class="fa-solid fa-expand"></i></button>
+                                </div>
+                            </div>
+                            <div class="cam-viewport static-sim">
+                                <div class="thermal-overlay">
+                                    <i class="fa-solid fa-gauge text-amber"></i>
+                                    <p>PRESSURE NORMAL // MONITORING ACTIVE</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="cctv-control-toolbar">
+                        <button class="cctv-btn btn-green" id="startStreamBtn">
+                            <i class="fa-solid fa-play"></i> START MATRIX FEED
+                        </button>
+                        <button class="cctv-btn btn-red" id="stopStreamBtn" disabled>
+                            <i class="fa-solid fa-stop"></i> STOP FEED
+                        </button>
+                        <button class="cctv-btn btn-cyan" id="thermalPaletteBtn">
+                            <i class="fa-solid fa-fire-flame-simple"></i> THERMAL PALETTE: OFF
+                        </button>
+                        <button class="cctv-btn btn-cyan" id="heatmapToggleBtn">
+                            <i class="fa-solid fa-fire-burner"></i> HEATMAP OVERLAY: ON
+                        </button>
+                        <span class="consecutive-tag" id="consecutiveBadge">CONSECUTIVE FRAMES: 0/5</span>
+                    </div>
+                </div>
+
+                <!-- Tab 2: Media Inspector -->
+                <div class="cctv-tab-content" id="tab-upload">
+                    <div class="cctv-dropzone" id="dropZone">
+                        <i class="fa-solid fa-cloud-arrow-up"></i>
+                        <h3>DRAG & DROP IMAGE OR VIDEO FILE FOR CCTV SCAN</h3>
+                        <p>SUPPORTS JPG, PNG, MP4, AVI FORMATS</p>
+                        <input type="file" id="imageInput" accept="image/*,video/*" hidden>
+                        <button class="cctv-btn btn-green" onclick="document.getElementById('imageInput').click()">SELECT MEDIA FILE</button>
+                    </div>
+
+                    <!-- Upload Status Banner -->
+                    <div class="upload-cctv-banner safe hidden" id="uploadStatusPopup">
+                        <i class="fa-solid fa-circle-check" id="uploadPopupIcon"></i>
+                        <span id="uploadPopupText">[ STATUS: NORMAL ] ✅ NO HAZARDS DETECTED</span>
+                    </div>
+
+                    <div class="cctv-preview-grid hidden" id="uploadPreviewGrid">
+                        <div class="cctv-preview-card">
+                            <h4>SOURCE RAW MEDIA</h4>
+                            <img id="uploadOrigImg" src="" alt="Original">
+                        </div>
+                        <div class="cctv-preview-card">
+                            <h4>YOLOv8 DETECTED BOUNDING OUTPUT</h4>
+                            <img id="uploadResultImg" src="" alt="Detections">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 3: Settings & Alert Contact Registration -->
+                <div class="cctv-tab-content" id="tab-settings">
+                    <div class="cctv-settings-grid">
+                        <!-- Left Sub-Panel: AI Threshold Matrix -->
+                        <div class="cctv-form-wrapper">
+                            <h3><i class="fa-solid fa-sliders"></i> DETECTOR THRESHOLDS</h3>
+                            
+                            <div class="cctv-form-group">
+                                <label>CONFIDENCE THRESHOLD: <span id="confVal" class="val-mono">0.25</span></label>
+                                <input type="range" id="confSlider" min="0.05" max="1.0" step="0.05" value="0.25">
+                            </div>
+
+                            <div class="cctv-form-group">
+                                <label>CONSECUTIVE HAZARD FRAME FILTER: <span id="frameVal" class="val-mono">5</span></label>
+                                <input type="number" id="frameInput" min="1" max="30" value="5">
+                            </div>
+
+                            <div class="cctv-form-group">
+                                <label>ALERT COOLDOWN (SECONDS): <span id="cooldownVal" class="val-mono">30</span></label>
+                                <input type="number" id="cooldownInput" min="5" max="300" value="30">
+                            </div>
+                        </div>
+
+                        <!-- Right Sub-Panel: User Notification Contacts Registration -->
+                        <div class="cctv-form-wrapper">
+                            <h3><i class="fa-solid fa-mobile-screen-button"></i> USER MOBILE & TELEGRAM CONTACTS</h3>
+
+                            <div class="cctv-form-group">
+                                <label><i class="fa-brands fa-telegram text-cyan"></i> TELEGRAM CHAT ID (INSTANT PHONE PUSH):</label>
+                                <input type="text" id="telegramChatInput" placeholder="e.g. 5730957885" value="5730957885">
+                                <small class="text-muted">Get Chat ID from @userinfobot on Telegram</small>
+                            </div>
+
+                            <div class="cctv-form-group">
+                                <label><i class="fa-solid fa-comment-sms text-green"></i> MOBILE PHONE NUMBER FOR SMS:</label>
+                                <input type="text" id="smsPhoneInput" placeholder="e.g. +919876543210" value="">
+                                <small class="text-muted">Include country code (e.g. +91 for India)</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button class="cctv-btn btn-green margin-top-12" id="saveSettingsBtn">
+                        <i class="fa-solid fa-floppy-disk"></i> COMMIT CCTV CONFIG & NOTIFICATION CONTACTS
+                    </button>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Floating Event Log Slide-Out Drawer Panel (Right to Left Slide) -->
+    <aside class="cctv-drawer-panel" id="logDrawerPanel">
+        <div class="drawer-header">
+            <h3><i class="fa-solid fa-list-check"></i> CCTV EVENT LOG STREAM</h3>
+            <div class="drawer-actions">
+                <a href="/api/export-csv" target="_blank" class="cctv-btn-sm">
+                    <i class="fa-solid fa-download"></i> CSV
+                </a>
+                <button class="drawer-close-btn" id="closeDrawerBtn"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+        </div>
+
+        <div class="cctv-table-wrapper">
+            <table class="cctv-table">
+                <thead>
+                    <tr>
+                        <th>TIME</th>
+                        <th>TRACK ID</th>
+                        <th>HAZARD</th>
+                        <th>CONF</th>
+                        <th>VELOCITY</th>
+                    </tr>
+                </thead>
+                <tbody id="logTableBody">
+                    <tr>
+                        <td colspan="5" class="empty-cell">NO CCTV HAZARDS LOGGED. SYSTEM SECURE.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </aside>
+
+    <!-- Camera Maximize Modal HUD -->
+    <div class="cctv-modal-overlay hidden" id="camModal">
+        <div class="cctv-modal-window">
+            <div class="modal-header">
+                <h3 id="modalCamTitle"><i class="fa-solid fa-video"></i> CAM FULLSCREEN FEED</h3>
+                <button class="modal-close-btn" onclick="closeCamModal()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-viewport">
+                <img id="modalCanvas" src="" alt="Fullscreen Feed">
+                <div class="crosshair-overlay">
+                    <div class="ch-line h"></div>
+                    <div class="ch-line v"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CCTV App Controller Script -->
+    <script src="/static/app.js?v=16.0"></script>
+</body>
+</html>

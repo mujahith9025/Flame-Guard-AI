@@ -1,0 +1,14 @@
+names:
+- Fire
+- Person
+- Smoke
+nc: 3
+roboflow:
+  license: CC BY 4.0
+  project: fire-and-smoke-detection-yolov8
+  url: https://universe.roboflow.com/senior-design-project-cavtw/fire-and-smoke-detection-yolov8/dataset/1
+  version: 1
+  workspace: senior-design-project-cavtw
+test: ../test/images
+train: ../train/images
+val: ../valid/images

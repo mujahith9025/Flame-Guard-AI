@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: flame-guard-ai
+    env: docker
+    region: singapore
+    plan: free
+    dockerfilePath: Dockerfile
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: PYTHONUNBUFFERED
+        value: "1"

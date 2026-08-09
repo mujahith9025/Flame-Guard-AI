@@ -1,0 +1,34 @@
+alerts:
+  consecutive_frames_threshold: 5
+  cooldown_seconds: 30
+  email:
+    enabled: false
+    recipients: []
+    sender_email: ''
+    sender_password: ''
+    smtp_port: 587
+    smtp_server: smtp.gmail.com
+  sms:
+    account_sid: ''
+    auth_token: ''
+    enabled: false
+    from_number: ''
+    to_number: ''
+  telegram:
+    bot_token: 8850365473:AAHPme9b8jteFySKl7j2hkDa1pu3PXJ_Wp8
+    chat_id: '8507631249'
+    enabled: true
+    user_name: Muhazeer
+model:
+  classes:
+    0: fire
+    1: person
+    2: smoke
+  confidence_threshold: 0.2
+  device: cpu
+  iou_threshold: 0.45
+  weights: best.pt
+stream:
+  frame_height: 480
+  frame_width: 640
+  source: 0
