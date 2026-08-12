@@ -418,6 +418,12 @@ async function startWebSocketStream() {
     startStreamBtn.disabled = true;
     stopStreamBtn.disabled = false;
 
+    const cam01Btn = document.getElementById("cam01ToggleBtn");
+    if (cam01Btn) {
+        cam01Btn.className = "cam-toggle-btn btn-cam-on";
+        cam01Btn.innerHTML = `<i class="fa-solid fa-power-off"></i> CAMERA OFF`;
+    }
+
     const ctx = clientWebcamCanvas.getContext("2d");
     clientWebcamCanvas.width = 640;
     clientWebcamCanvas.height = 480;
@@ -451,6 +457,40 @@ async function startWebSocketStream() {
             console.error("Stream loop error:", e);
         }
     }, 100);
+}
+
+// Per-Camera Stream Toggle Handler
+function toggleCamStream(camId) {
+    if (camId === "cam01") {
+        if (!isStreaming) {
+            startWebSocketStream();
+        } else {
+            stopWebSocketStream();
+        }
+    } else {
+        const toggleBtn = document.getElementById(`${camId}ToggleBtn`);
+        const overlay = document.getElementById(`overlay${camId.charAt(0).toUpperCase() + camId.slice(1)}`);
+        const text = document.getElementById(`text${camId.charAt(0).toUpperCase() + camId.slice(1)}`);
+        const badge = document.getElementById(`badge${camId.charAt(0).toUpperCase() + camId.slice(1)}`);
+
+        if (toggleBtn.classList.contains("btn-cam-on")) {
+            // Turn Cam OFF
+            toggleBtn.className = "cam-toggle-btn btn-cam-off";
+            toggleBtn.innerHTML = `<i class="fa-solid fa-power-off"></i> CAMERA ON`;
+            if (overlay) overlay.style.opacity = "0.25";
+            if (text) text.innerText = "CAMERA OFF // FEED PAUSED";
+            if (badge) { badge.className = "cam-badge hazard-badge"; badge.innerText = "OFFLINE"; }
+        } else {
+            // Turn Cam ON
+            toggleBtn.className = "cam-toggle-btn btn-cam-on";
+            toggleBtn.innerHTML = `<i class="fa-solid fa-power-off"></i> CAMERA OFF`;
+            if (overlay) overlay.style.opacity = "1.0";
+            if (text) {
+                text.innerText = camId === "cam02" ? "IR THERMAL SCANNING ACTIVE // 24.5°C NORMAL" : (camId === "cam03" ? "PERIMETER CLEAR // SENSOR ONLINE" : "PRESSURE NORMAL // MONITORING ACTIVE");
+            }
+            if (badge) { badge.className = "cam-badge safe"; badge.innerText = "NORMAL"; }
+        }
+    }
 }
 
 // Unified Stream Payload Handler (Relying 100% on PyTorch YOLOv8 Neural Network Predictions)
@@ -506,6 +546,12 @@ function stopWebSocketStream() {
     clientWebcamVideo.classList.remove("active");
     if (modalWebcamVideo) {
         modalWebcamVideo.classList.remove("active");
+    }
+
+    const cam01Btn = document.getElementById("cam01ToggleBtn");
+    if (cam01Btn) {
+        cam01Btn.className = "cam-toggle-btn btn-cam-off";
+        cam01Btn.innerHTML = `<i class="fa-solid fa-power-off"></i> CAMERA ON`;
     }
 
     isStreaming = false;

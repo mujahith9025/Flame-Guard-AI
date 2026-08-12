@@ -124,9 +124,14 @@
                                 <!-- Thermal Spot Temp Badge -->
                                 <div class="thermal-temp-badge" id="spotTempBadge">SPOT TEMP: 32.4°C [SAFE]</div>
 
+                                <!-- Per-Camera Bottom-Left Toggle Control Button -->
+                                <button class="cam-toggle-btn btn-cam-off" id="cam01ToggleBtn" onclick="toggleCamStream('cam01')">
+                                    <i class="fa-solid fa-power-off"></i> CAMERA ON
+                                </button>
+
                                 <div class="stream-placeholder" id="streamPlaceholder">
                                     <i class="fa-solid fa-video-slash"></i>
-                                    <p>CAM 01 FEED DISCONNECTED. CLICK 'START MATRIX FEED' BELOW.</p>
+                                    <p>CAM 01 FEED DISCONNECTED. CLICK 'CAMERA ON' OR 'START MATRIX FEED' BELOW.</p>
                                 </div>
                             </div>
                         </div>
@@ -136,15 +141,20 @@
                             <div class="cam-tile-header">
                                 <span><i class="fa-solid fa-temperature-full"></i> CAM 02 // THERMAL IR MATRIX</span>
                                 <div class="header-right-tools">
-                                    <span class="cam-badge safe">NORMAL</span>
+                                    <span class="cam-badge safe" id="badgeCam02">NORMAL</span>
                                     <button class="cam-expand-btn" title="Expand View" onclick="expandCamFeed('CAM 02 // THERMAL IR MATRIX')"><i class="fa-solid fa-expand"></i></button>
                                 </div>
                             </div>
-                            <div class="cam-viewport thermal-sim">
-                                <div class="thermal-overlay">
+                            <div class="cam-viewport thermal-sim" id="viewport2">
+                                <div class="thermal-overlay" id="overlayCam02">
                                     <i class="fa-solid fa-eye text-cyan"></i>
-                                    <p>IR THERMAL SCANNING ACTIVE // 24.5°C NORMAL</p>
+                                    <p id="textCam02">IR THERMAL SCANNING ACTIVE // 24.5°C NORMAL</p>
                                 </div>
+
+                                <!-- Per-Camera Bottom-Left Toggle Control Button -->
+                                <button class="cam-toggle-btn btn-cam-on" id="cam02ToggleBtn" onclick="toggleCamStream('cam02')">
+                                    <i class="fa-solid fa-power-off"></i> CAMERA OFF
+                                </button>
                             </div>
                         </div>
 
@@ -153,15 +163,20 @@
                             <div class="cam-tile-header">
                                 <span><i class="fa-solid fa-warehouse"></i> CAM 03 // WAREHOUSE BAY 04</span>
                                 <div class="header-right-tools">
-                                    <span class="cam-badge safe">NORMAL</span>
+                                    <span class="cam-badge safe" id="badgeCam03">NORMAL</span>
                                     <button class="cam-expand-btn" title="Expand View" onclick="expandCamFeed('CAM 03 // WAREHOUSE BAY 04')"><i class="fa-solid fa-expand"></i></button>
                                 </div>
                             </div>
-                            <div class="cam-viewport static-sim">
-                                <div class="thermal-overlay">
+                            <div class="cam-viewport static-sim" id="viewport3">
+                                <div class="thermal-overlay" id="overlayCam03">
                                     <i class="fa-solid fa-shield-halved text-green"></i>
-                                    <p>PERIMETER CLEAR // SENSOR ONLINE</p>
+                                    <p id="textCam03">PERIMETER CLEAR // SENSOR ONLINE</p>
                                 </div>
+
+                                <!-- Per-Camera Bottom-Left Toggle Control Button -->
+                                <button class="cam-toggle-btn btn-cam-on" id="cam03ToggleBtn" onclick="toggleCamStream('cam03')">
+                                    <i class="fa-solid fa-power-off"></i> CAMERA OFF
+                                </button>
                             </div>
                         </div>
 
@@ -170,15 +185,20 @@
                             <div class="cam-tile-header">
                                 <span><i class="fa-solid fa-fire-burner"></i> CAM 04 // BOILER PERIMETER</span>
                                 <div class="header-right-tools">
-                                    <span class="cam-badge safe">NORMAL</span>
+                                    <span class="cam-badge safe" id="badgeCam04">NORMAL</span>
                                     <button class="cam-expand-btn" title="Expand View" onclick="expandCamFeed('CAM 04 // BOILER PERIMETER')"><i class="fa-solid fa-expand"></i></button>
                                 </div>
                             </div>
-                            <div class="cam-viewport static-sim">
-                                <div class="thermal-overlay">
+                            <div class="cam-viewport static-sim" id="viewport4">
+                                <div class="thermal-overlay" id="overlayCam04">
                                     <i class="fa-solid fa-gauge text-amber"></i>
-                                    <p>PRESSURE NORMAL // MONITORING ACTIVE</p>
+                                    <p id="textCam04">PRESSURE NORMAL // MONITORING ACTIVE</p>
                                 </div>
+
+                                <!-- Per-Camera Bottom-Left Toggle Control Button -->
+                                <button class="cam-toggle-btn btn-cam-on" id="cam04ToggleBtn" onclick="toggleCamStream('cam04')">
+                                    <i class="fa-solid fa-power-off"></i> CAMERA OFF
+                                </button>
                             </div>
                         </div>
                     </div>
