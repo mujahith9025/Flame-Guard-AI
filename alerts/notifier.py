@@ -86,21 +86,48 @@ class AlertNotifier:
         # Attempt 1: Try sending Photo Snapshot first if frame is available (with 15s timeout)
         if frame is not None:
             try:
-                ret, jpeg_buf = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 70])
+                ret, jpeg_buf = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
                 if ret:
                     url = f"https://api.telegram.org/bot{bot_token}/sendPhoto"
+                    photo_bytes = jpeg_buf.tobytes()
+                    
+                    # 1a. Try Markdown format photo push
                     data = {
-                        "chat_id": chat_id,
+                        "chat_id": str(chat_id),
                         "caption": text_msg + "\n\n📸 *Live CCTV frame snapshot attached below!*",
                         "parse_mode": "Markdown"
                     }
                     files = {
-                        "photo": ("hazard_snapshot.jpg", jpeg_buf.tobytes(), "image/jpeg")
+                        "photo": ("hazard_snapshot.jpg", photo_bytes, "image/jpeg")
                     }
                     resp = requests.post(url, data=data, files=files, timeout=15)
                     if resp.status_code == 200:
                         logger.info(f"📸 📲 ✅ Telegram photo snapshot alert dispatched to {user_name} ({chat_id}) successfully!")
                         return
+
+                    # 1b. Retry without Markdown parsing if Markdown entity parsing failed
+                    plain_msg = (
+                        f"🚨 FLAME-GUARD AI EMERGENCY HAZARD ALERT\n\n"
+                        f"Registered Officer: {user_name}\n"
+                        f"Hazard Detected: {alert_type}\n"
+                        f"Location: Zone 1 - Facility Main Bay\n"
+                        f"Details: {details}\n"
+                        f"Timestamp: {time.strftime('%Y-%m-%d %H:%M:%S')}\n\n"
+                        f"📸 Live CCTV frame snapshot attached below!"
+                    )
+                    data_plain = {
+                        "chat_id": str(chat_id),
+                        "caption": plain_msg
+                    }
+                    files_plain = {
+                        "photo": ("hazard_snapshot.jpg", photo_bytes, "image/jpeg")
+                    }
+                    resp_plain = requests.post(url, data=data_plain, files=files_plain, timeout=15)
+                    if resp_plain.status_code == 200:
+                        logger.info(f"📸 📲 ✅ Telegram plain text photo snapshot alert dispatched to {user_name} ({chat_id}) successfully!")
+                        return
+                    else:
+                        logger.error(f"Telegram sendPhoto plain retry failed: {resp_plain.text}")
             except Exception as photo_err:
                 logger.warning(f"Telegram photo push timed out/failed ({photo_err}). Falling back to instant text alert...")
 
