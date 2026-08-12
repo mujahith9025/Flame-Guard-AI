@@ -31,8 +31,8 @@ class FireSmokeDetector:
     }
 
     CLASS_CONF_THRESHOLDS = {
-        "fire": 0.15,   # High-sensitivity threshold for fire (15%) for instant detection
-        "smoke": 0.15,  # High-sensitivity threshold for smoke (15%)
+        "fire": 0.15,   # High-sensitivity threshold for fire (15%) for instant webcam detection
+        "smoke": 0.50,  # High threshold for smoke (50%) to eliminate laptop webcam noise/grain false alarms
         "person": 0.35  # Threshold for person detection (35%)
     }
 
