@@ -74,73 +74,83 @@ document.addEventListener("DOMContentLoaded", () => {
     setInterval(fetchLogs, 2500);
 });
 
-// Real-Time High-Contrast Bounding Box Overlay Renderer (Supports FIRE, PERSON & SMOKE)
+// Real-Time High-Contrast Bounding Box Overlay Renderer (Supports FIRE, PERSON & SMOKE across Grid View & Fullscreen View)
 function renderBoundingBoxes(detections) {
-    let canvas = document.getElementById("boxOverlayCanvas");
-    if (!canvas) {
+    const canvases = [];
+    
+    // 1. Grid View Overlay Canvas
+    let gridCanvas = document.getElementById("boxOverlayCanvas");
+    if (!gridCanvas) {
         const viewport = document.getElementById("viewport1");
         if (viewport) {
-            canvas = document.createElement("canvas");
-            canvas.id = "boxOverlayCanvas";
-            canvas.style.position = "absolute";
-            canvas.style.top = "0";
-            canvas.style.left = "0";
-            canvas.style.width = "100%";
-            canvas.style.height = "100%";
-            canvas.style.pointerEvents = "none";
-            canvas.style.zIndex = "12";
-            viewport.appendChild(canvas);
-        } else {
-            return;
+            gridCanvas = document.createElement("canvas");
+            gridCanvas.id = "boxOverlayCanvas";
+            gridCanvas.style.position = "absolute";
+            gridCanvas.style.top = "0";
+            gridCanvas.style.left = "0";
+            gridCanvas.style.width = "100%";
+            gridCanvas.style.height = "100%";
+            gridCanvas.style.pointerEvents = "none";
+            gridCanvas.style.zIndex = "12";
+            viewport.appendChild(gridCanvas);
         }
     }
+    if (gridCanvas) canvases.push(gridCanvas);
 
-    const ctx = canvas.getContext("2d");
-    canvas.width = canvas.clientWidth || 640;
-    canvas.height = canvas.clientHeight || 480;
+    // 2. Fullscreen Modal Overlay Canvas
+    let modalCanvasElement = document.getElementById("modalBoxOverlayCanvas");
+    if (modalCanvasElement && !camModal.classList.contains("hidden")) {
+        canvases.push(modalCanvasElement);
+    }
 
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    canvases.forEach(canvas => {
+        const ctx = canvas.getContext("2d");
+        canvas.width = canvas.clientWidth || 640;
+        canvas.height = canvas.clientHeight || 480;
 
-    if (!detections || detections.length === 0) return;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    const scaleX = canvas.width / 640;
-    const scaleY = canvas.height / 480;
+        if (!detections || detections.length === 0) return;
 
-    detections.forEach(d => {
-        if (!d.bbox) return;
-        const [x1, y1, x2, y2] = d.bbox;
-        const bx = x1 * scaleX;
-        const by = y1 * scaleY;
-        const bw = (x2 - x1) * scaleX;
-        const bh = (y2 - y1) * scaleY;
+        const scaleX = canvas.width / 640;
+        const scaleY = canvas.height / 480;
 
-        const clsLower = d.class.toLowerCase();
-        let strokeColor = "#ff003c"; // Fire (Red)
-        if (clsLower.includes("person")) {
-            strokeColor = "#ffaa00"; // Person (Orange)
-        } else if (clsLower.includes("smoke")) {
-            strokeColor = "#a0a0a0"; // Smoke (Gray)
-        }
+        detections.forEach(d => {
+            if (!d.bbox) return;
+            const [x1, y1, x2, y2] = d.bbox;
+            const bx = x1 * scaleX;
+            const by = y1 * scaleY;
+            const bw = (x2 - x1) * scaleX;
+            const bh = (y2 - y1) * scaleY;
 
-        const labelText = `${d.class.toUpperCase()}: ${(d.confidence * 100).toFixed(1)}%`;
+            const clsLower = d.class.toLowerCase();
+            let strokeColor = "#ff003c"; // Fire (Red)
+            if (clsLower.includes("person")) {
+                strokeColor = "#ffaa00"; // Person (Orange)
+            } else if (clsLower.includes("smoke")) {
+                strokeColor = "#a0a0a0"; // Smoke (Gray)
+            }
 
-        // 1. Draw Outer Bounding Rectangle
-        ctx.strokeStyle = strokeColor;
-        ctx.lineWidth = 3;
-        ctx.shadowColor = strokeColor;
-        ctx.shadowBlur = 10;
-        ctx.strokeRect(bx, by, bw, bh);
+            const labelText = `${d.class.toUpperCase()}: ${(d.confidence * 100).toFixed(1)}%`;
 
-        // 2. Draw Filled Header Box & Label Text
-        ctx.shadowBlur = 0;
-        ctx.font = "bold 13px Outfit, Inter, sans-serif";
-        const textWidth = ctx.measureText(labelText).width;
+            // 1. Draw Outer Bounding Rectangle
+            ctx.strokeStyle = strokeColor;
+            ctx.lineWidth = 3.5;
+            ctx.shadowColor = strokeColor;
+            ctx.shadowBlur = 12;
+            ctx.strokeRect(bx, by, bw, bh);
 
-        ctx.fillStyle = strokeColor;
-        ctx.fillRect(bx, Math.max(0, by - 24), textWidth + 12, 24);
+            // 2. Draw Filled Header Box & Label Text
+            ctx.shadowBlur = 0;
+            ctx.font = "bold 14px Outfit, Inter, sans-serif";
+            const textWidth = ctx.measureText(labelText).width;
 
-        ctx.fillStyle = "#ffffff";
-        ctx.fillText(labelText, bx + 6, Math.max(16, by - 7));
+            ctx.fillStyle = strokeColor;
+            ctx.fillRect(bx, Math.max(0, by - 26), textWidth + 14, 26);
+
+            ctx.fillStyle = "#ffffff";
+            ctx.fillText(labelText, bx + 7, Math.max(18, by - 7));
+        });
     });
 }
 
@@ -445,6 +455,13 @@ async function startWebSocketStream() {
 
 // Unified Stream Payload Handler (Relying 100% on PyTorch YOLOv8 Neural Network Predictions)
 function handleStreamPayload(data) {
+    if (data.frame_b64) {
+        streamCanvas.src = data.frame_b64;
+        if (modalCanvas && !camModal.classList.contains("hidden")) {
+            modalCanvas.src = data.frame_b64;
+        }
+    }
+
     if (data.fps !== undefined) {
         metricFps.innerText = `${data.fps} FPS`;
     }

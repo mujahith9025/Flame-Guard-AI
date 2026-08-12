@@ -319,9 +319,10 @@
                 <h3 id="modalCamTitle"><i class="fa-solid fa-video"></i> CAM FULLSCREEN FEED</h3>
                 <button class="modal-close-btn" onclick="closeCamModal()"><i class="fa-solid fa-xmark"></i></button>
             </div>
-            <div class="modal-viewport">
+            <div class="modal-viewport" id="modalCamContainer">
                 <video id="modalWebcamVideo" autoplay playsinline muted class="modal-video-element"></video>
                 <img id="modalCanvas" src="" alt="Fullscreen Feed" class="modal-overlay-img">
+                <canvas id="modalBoxOverlayCanvas" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:12;"></canvas>
                 <div class="crosshair-overlay">
                     <div class="ch-line h"></div>
                     <div class="ch-line v"></div>
