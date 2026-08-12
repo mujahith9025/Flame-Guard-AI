@@ -31,7 +31,7 @@ class FireSmokeDetector:
     }
 
     CLASS_CONF_THRESHOLDS = {
-        "fire": 0.25,   # Precision threshold for fire (25%) to eliminate background noise & room reflections
+        "fire": 0.35,   # High-precision confidence threshold for fire (35%) to eliminate rare transient glares
         "smoke": 0.50,  # Threshold for smoke (50%) to eliminate laptop webcam grain false alarms
         "person": 0.35  # Threshold for person detection (35%)
     }
@@ -39,7 +39,7 @@ class FireSmokeDetector:
     def __init__(
         self,
         model_path: str = "best.pt",
-        conf_threshold: float = 0.25,
+        conf_threshold: float = 0.35,
         iou_threshold: float = 0.45,
         device: str = "cpu",
         alert_cooldown: int = 30
@@ -65,7 +65,7 @@ class FireSmokeDetector:
         self.consecutive_hazard_frames = 0
 
     @staticmethod
-    def detect_calibrated_flame_regions(img: cv2.Mat, min_area_pixels: int = 600) -> List[Dict[str, Any]]:
+    def detect_calibrated_flame_regions(img: cv2.Mat, min_area_pixels: int = 800) -> List[Dict[str, Any]]:
         """
         Universal High-Precision Flame Detector Engine (Zero False Positives on Human Skin/Walls/Clothing):
         1. Strict Flame RGB Red Dominance (R > 215, G < R*0.75, B < R*0.45, R - G > 45, R - B > 90)
@@ -135,7 +135,7 @@ class FireSmokeDetector:
         try:
             results = self.model.predict(
                 source=frame,
-                conf=0.25,
+                conf=0.35,
                 iou=self.iou_threshold,
                 device=self.device,
                 verbose=False
@@ -149,7 +149,7 @@ class FireSmokeDetector:
                     conf = float(box.conf[0].item())
                     xyxy = box.xyxy[0].cpu().numpy().astype(int)
 
-                    min_required_conf = self.CLASS_CONF_THRESHOLDS.get(raw_label, 0.25)
+                    min_required_conf = self.CLASS_CONF_THRESHOLDS.get(raw_label, 0.35)
                     if conf < min_required_conf:
                         continue
 
@@ -167,7 +167,7 @@ class FireSmokeDetector:
             logger.error(f"YOLOv8 prediction error: {yolo_err}")
 
         # 2. Universal Flame Region Safety Fallback (Guarantees 100% Bounding Box Detection for All Fire Videos/Screen Flames)
-        flame_boxes = self.detect_calibrated_flame_regions(frame, min_area_pixels=600)
+        flame_boxes = self.detect_calibrated_flame_regions(frame, min_area_pixels=800)
         if flame_boxes:
             for f_box in flame_boxes:
                 is_dup = False

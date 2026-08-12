@@ -93,7 +93,7 @@ def get_detector():
         else:
             weights = cfg.get("model", {}).get("weights", "best.pt")
 
-        conf = float(cfg.get("model", {}).get("confidence_threshold", 0.25))
+        conf = float(cfg.get("model", {}).get("confidence_threshold", 0.35))
         iou = float(cfg.get("model", {}).get("iou_threshold", 0.45))
         cd = int(cfg.get("alerts", {}).get("cooldown_seconds", 30))
 

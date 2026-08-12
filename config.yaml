@@ -24,7 +24,7 @@ model:
     0: fire
     1: person
     2: smoke
-  confidence_threshold: 0.25
+  confidence_threshold: 0.35
   device: cpu
   iou_threshold: 0.45
   weights: best.pt
