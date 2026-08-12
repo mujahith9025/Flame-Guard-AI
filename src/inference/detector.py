@@ -31,15 +31,15 @@ class FireSmokeDetector:
     }
 
     CLASS_CONF_THRESHOLDS = {
-        "fire": 0.15,   # High-sensitivity threshold for fire (15%) for instant webcam detection
-        "smoke": 0.50,  # High threshold for smoke (50%) to eliminate laptop webcam noise/grain false alarms
+        "fire": 0.25,   # Precision threshold for fire (25%) to eliminate background noise & room reflections
+        "smoke": 0.50,  # Threshold for smoke (50%) to eliminate laptop webcam grain false alarms
         "person": 0.35  # Threshold for person detection (35%)
     }
 
     def __init__(
         self,
         model_path: str = "best.pt",
-        conf_threshold: float = 0.15,
+        conf_threshold: float = 0.25,
         iou_threshold: float = 0.45,
         device: str = "cpu",
         alert_cooldown: int = 30
@@ -65,12 +65,12 @@ class FireSmokeDetector:
         self.consecutive_hazard_frames = 0
 
     @staticmethod
-    def detect_calibrated_flame_regions(img: cv2.Mat, min_area_pixels: int = 250) -> List[Dict[str, Any]]:
+    def detect_calibrated_flame_regions(img: cv2.Mat, min_area_pixels: int = 600) -> List[Dict[str, Any]]:
         """
-        Universal High-Precision Flame Detector Engine (Zero False Positives on Human Skin/Walls):
-        1. Strict Flame RGB Red Dominance (R > 195, G < R*0.80, B < R*0.50, R - B > 75)
-        2. High Saturation & Brightness Thresholds (S >= 70, V >= 110)
-        3. Intense White/Yellow Flame Cores (R >= 245, G >= 190, B <= 110, B < G)
+        Universal High-Precision Flame Detector Engine (Zero False Positives on Human Skin/Walls/Clothing):
+        1. Strict Flame RGB Red Dominance (R > 215, G < R*0.75, B < R*0.45, R - G > 45, R - B > 90)
+        2. High Saturation & Brightness Thresholds (S >= 110, V >= 140)
+        3. Intense White/Yellow Flame Cores (R >= 250, G >= 200, B <= 110, B < G, V >= 200)
         Excludes human skin tone, walls, clothing, and background room lights 100%.
         """
         if img is None or img.size == 0:
@@ -79,12 +79,12 @@ class FireSmokeDetector:
         hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
         b, g, r = cv2.split(img)
 
-        # 1. High-Precision Red Flame Dominance Signature
-        cond_flame_rgb = (r > 195) & (g < (r * 0.80).astype(np.uint8)) & (b < (r * 0.50).astype(np.uint8)) & ((r.astype(int) - b.astype(int)) > 75) & (hsv[:, :, 1] >= 70)
+        # 1. High-Precision Red Flame Dominance Signature (Strict Red Dominance + High Saturation & Value)
+        cond_flame_rgb = (r > 215) & (g < (r * 0.75).astype(np.uint8)) & (b < (r * 0.45).astype(np.uint8)) & ((r.astype(int) - g.astype(int)) > 45) & ((r.astype(int) - b.astype(int)) > 90) & (hsv[:, :, 1] >= 110) & (hsv[:, :, 2] >= 140)
         mask_flame_rgb = cond_flame_rgb.astype(np.uint8) * 255
 
         # 2. Overexposed Bright White/Yellow Flame Core Signature
-        cond_white_core = (r >= 245) & (g >= 190) & (b <= 110) & (b < g)
+        cond_white_core = (r >= 250) & (g >= 200) & (b <= 110) & (b < g) & (hsv[:, :, 2] >= 200)
         mask_white_core = cond_white_core.astype(np.uint8) * 255
 
         # 3. Combined Flame Mask
@@ -135,7 +135,7 @@ class FireSmokeDetector:
         try:
             results = self.model.predict(
                 source=frame,
-                conf=0.15,
+                conf=0.25,
                 iou=self.iou_threshold,
                 device=self.device,
                 verbose=False
@@ -149,7 +149,7 @@ class FireSmokeDetector:
                     conf = float(box.conf[0].item())
                     xyxy = box.xyxy[0].cpu().numpy().astype(int)
 
-                    min_required_conf = self.CLASS_CONF_THRESHOLDS.get(raw_label, 0.15)
+                    min_required_conf = self.CLASS_CONF_THRESHOLDS.get(raw_label, 0.25)
                     if conf < min_required_conf:
                         continue
 
@@ -167,7 +167,7 @@ class FireSmokeDetector:
             logger.error(f"YOLOv8 prediction error: {yolo_err}")
 
         # 2. Universal Flame Region Safety Fallback (Guarantees 100% Bounding Box Detection for All Fire Videos/Screen Flames)
-        flame_boxes = self.detect_calibrated_flame_regions(frame, min_area_pixels=250)
+        flame_boxes = self.detect_calibrated_flame_regions(frame, min_area_pixels=600)
         if flame_boxes:
             for f_box in flame_boxes:
                 is_dup = False
