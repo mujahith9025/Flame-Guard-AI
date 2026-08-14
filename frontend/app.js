@@ -599,6 +599,25 @@ function setupEventListeners() {
     startStreamBtn.addEventListener("click", startWebSocketStream);
     stopStreamBtn.addEventListener("click", stopWebSocketStream);
 
+    // Cyberpunk HUD Scanline Overlay Toggle
+    const hudOverlayToggleBtn = document.getElementById("hudOverlayToggleBtn");
+    if (hudOverlayToggleBtn) {
+        hudOverlayToggleBtn.addEventListener("click", () => {
+            const matrixGridContainer = document.getElementById("matrixGridContainer");
+            if (matrixGridContainer) {
+                matrixGridContainer.classList.toggle("hud-scanline-active");
+                const isScanlineActive = matrixGridContainer.classList.contains("hud-scanline-active");
+                if (isScanlineActive) {
+                    hudOverlayToggleBtn.innerHTML = `<i class="fa-solid fa-border-top-left"></i> HUD SCANLINES: ON`;
+                    hudOverlayToggleBtn.classList.replace("btn-cyan", "btn-green");
+                } else {
+                    hudOverlayToggleBtn.innerHTML = `<i class="fa-solid fa-border-top-left"></i> HUD SCANLINES: OFF`;
+                    hudOverlayToggleBtn.classList.replace("btn-green", "btn-cyan");
+                }
+            }
+        });
+    }
+
     // Heatmap Overlay Toggle
     if (heatmapToggleBtn) {
         heatmapToggleBtn.addEventListener("click", () => {

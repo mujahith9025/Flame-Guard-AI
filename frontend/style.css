@@ -795,6 +795,40 @@ body.login-body {
     overflow: hidden;
 }
 
+/* Cyberpunk Tactical HUD Scanline Overlay */
+.hud-scanline-active .cam-viewport::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+        rgba(18, 16, 16, 0) 50%, 
+        rgba(0, 240, 255, 0.08) 50%
+    ), linear-gradient(
+        90deg,
+        rgba(255, 0, 60, 0.03),
+        rgba(0, 255, 102, 0.01),
+        rgba(0, 240, 255, 0.03)
+    );
+    background-size: 100% 4px, 6px 100%;
+    pointer-events: none;
+    z-index: 18;
+    opacity: 0.85;
+    animation: scanlineScroll 12s linear infinite;
+}
+
+@keyframes scanlineScroll {
+    0% { background-position: 0 0; }
+    100% { background-position: 0 100%; }
+}
+
+.hud-scanline-active .cam-feed-tile {
+    border-color: rgba(0, 240, 255, 0.4);
+    box-shadow: 0 0 18px rgba(0, 240, 255, 0.15);
+}
+
 /* Client Video Stream Element */
 .cam-video-element {
     position: absolute;
