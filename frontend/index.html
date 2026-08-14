@@ -373,6 +373,23 @@
                 <video id="modalWebcamVideo" autoplay playsinline muted class="modal-video-element"></video>
                 <img id="modalCanvas" src="" alt="Fullscreen Feed" class="modal-overlay-img">
                 <canvas id="modalBoxOverlayCanvas" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:12;"></canvas>
+                
+                <!-- PTZ Virtual Directional Joystick Controller Overlay -->
+                <div class="ptz-joystick-overlay">
+                    <div class="ptz-title"><i class="fa-solid fa-gamepad"></i> PTZ CAMERA CONTROL</div>
+                    <div class="ptz-dpad">
+                        <button class="ptz-btn ptz-up" onclick="triggerPtzControl('up')" title="Tilt Up"><i class="fa-solid fa-chevron-up"></i></button>
+                        <button class="ptz-btn ptz-left" onclick="triggerPtzControl('left')" title="Pan Left"><i class="fa-solid fa-chevron-left"></i></button>
+                        <button class="ptz-btn ptz-center" onclick="triggerPtzControl('home')" title="Home Position"><i class="fa-solid fa-crosshairs"></i></button>
+                        <button class="ptz-btn ptz-right" onclick="triggerPtzControl('right')" title="Pan Right"><i class="fa-solid fa-chevron-right"></i></button>
+                        <button class="ptz-btn ptz-down" onclick="triggerPtzControl('down')" title="Tilt Down"><i class="fa-solid fa-chevron-down"></i></button>
+                    </div>
+                    <div class="ptz-zoom-group">
+                        <button class="ptz-zoom-btn" onclick="triggerPtzControl('zoomIn')"><i class="fa-solid fa-magnifying-glass-plus"></i> ZOOM +</button>
+                        <button class="ptz-zoom-btn" onclick="triggerPtzControl('zoomOut')"><i class="fa-solid fa-magnifying-glass-minus"></i> ZOOM -</button>
+                    </div>
+                </div>
+
                 <div class="crosshair-overlay">
                     <div class="ch-line h"></div>
                     <div class="ch-line v"></div>

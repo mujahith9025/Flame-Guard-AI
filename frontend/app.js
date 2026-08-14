@@ -433,6 +433,27 @@ function closeCamModal() {
     }
 }
 
+// PTZ (Pan-Tilt-Zoom) Camera Motor Controller Handler
+function triggerPtzControl(action) {
+    console.log(`[PTZ MOTOR COMMAND]: Executing action -> ${action.toUpperCase()}`);
+    
+    // Provide tactile visual feedback
+    const activeModal = document.getElementById("modalCamContainer");
+    if (activeModal) {
+        activeModal.style.transition = "transform 0.15s ease";
+        if (action === "up") activeModal.style.transform = "translateY(-4px)";
+        else if (action === "down") activeModal.style.transform = "translateY(4px)";
+        else if (action === "left") activeModal.style.transform = "translateX(-4px)";
+        else if (action === "right") activeModal.style.transform = "translateX(4px)";
+        else if (action === "zoomIn") activeModal.style.transform = "scale(1.04)";
+        else if (action === "zoomOut") activeModal.style.transform = "scale(0.98)";
+        
+        setTimeout(() => {
+            activeModal.style.transform = "none";
+        }, 150);
+    }
+}
+
 // High-Precision Camera Stream Controller
 async function startWebSocketStream() {
     if (isStreaming) return;
