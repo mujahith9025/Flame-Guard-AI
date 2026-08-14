@@ -102,7 +102,21 @@
 
                 <!-- Tab 1: Full-Width Multi-Camera Grid -->
                 <div class="cctv-tab-content active" id="tab-stream">
-                    <div class="cctv-matrix-grid">
+                    <!-- Matrix Layout Selector Toolbar -->
+                    <div class="layout-selector-bar">
+                        <span class="layout-label"><i class="fa-solid fa-table-cells-large"></i> MATRIX LAYOUT:</span>
+                        <button class="layout-btn active" id="layoutQuadBtn" onclick="switchMatrixLayout('quad')" title="2x2 Quad Grid Layout">
+                            <i class="fa-solid fa-border-all"></i> 2x2 QUAD
+                        </button>
+                        <button class="layout-btn" id="layoutSplitBtn" onclick="switchMatrixLayout('split')" title="1 Large + 3 Small Sidebar Layout">
+                            <i class="fa-solid fa-table-columns"></i> 1 LARGE + 3 SIDE
+                        </button>
+                        <button class="layout-btn" id="layoutSingleBtn" onclick="switchMatrixLayout('single')" title="1x1 Single Focus View">
+                            <i class="fa-solid fa-square"></i> 1x1 FOCUS
+                        </button>
+                    </div>
+
+                    <div class="cctv-matrix-grid" id="matrixGridContainer">
                         <!-- Camera Feed 1: Primary AI YOLO Video Stream -->
                         <div class="cam-feed-tile active-feed" id="camTile1">
                             <div class="cam-tile-header">

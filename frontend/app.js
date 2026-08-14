@@ -364,6 +364,36 @@ function updateStatusPopups(hasFire, hazardMessage) {
     }
 }
 
+// Dynamic Multi-Camera Matrix Layout Switcher (2x2 Quad, 1 Large + 3 Side, 1x1 Focus)
+function switchMatrixLayout(mode) {
+    const grid = document.getElementById("matrixGridContainer");
+    const quadBtn = document.getElementById("layoutQuadBtn");
+    const splitBtn = document.getElementById("layoutSplitBtn");
+    const singleBtn = document.getElementById("layoutSingleBtn");
+
+    if (!grid) return;
+
+    grid.classList.remove("layout-split", "layout-single");
+    if (quadBtn) quadBtn.classList.remove("active");
+    if (splitBtn) splitBtn.classList.remove("active");
+    if (singleBtn) singleBtn.classList.remove("active");
+
+    if (mode === "split") {
+        grid.classList.add("layout-split");
+        if (splitBtn) splitBtn.classList.add("active");
+    } else if (mode === "single") {
+        grid.classList.add("layout-single");
+        if (singleBtn) singleBtn.classList.add("active");
+    } else {
+        if (quadBtn) quadBtn.classList.add("active");
+    }
+
+    // Trigger window resize event so canvas bounding boxes recalculate positions smoothly
+    setTimeout(() => {
+        window.dispatchEvent(new Event("resize"));
+    }, 150);
+}
+
 // Expand Cam Feed Fullscreen Modal
 function expandCamFeed(camTitle) {
     modalCamTitle.innerText = camTitle;

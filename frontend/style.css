@@ -632,12 +632,98 @@ body.login-body {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 16px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Layout 1: 1 Large Main Feed + 3 Small Sidebar Feeds */
+.cctv-matrix-grid.layout-split {
+    grid-template-columns: 2.2fr 1fr;
+}
+
+.cctv-matrix-grid.layout-split #camTile1 {
+    grid-row: span 3;
+}
+
+.cctv-matrix-grid.layout-split #camTile1 .cam-viewport {
+    height: 600px;
+}
+
+.cctv-matrix-grid.layout-split #camTile2 .cam-viewport,
+.cctv-matrix-grid.layout-split #camTile3 .cam-viewport,
+.cctv-matrix-grid.layout-split #camTile4 .cam-viewport {
+    height: 180px;
+}
+
+/* Layout 2: Single Focus View (CAM 01 Full Width) */
+.cctv-matrix-grid.layout-single {
+    grid-template-columns: 1fr;
+}
+
+.cctv-matrix-grid.layout-single #camTile2,
+.cctv-matrix-grid.layout-single #camTile3,
+.cctv-matrix-grid.layout-single #camTile4 {
+    display: none;
+}
+
+.cctv-matrix-grid.layout-single #camTile1 .cam-viewport {
+    height: 520px;
 }
 
 @media (max-width: 900px) {
-    .cctv-matrix-grid {
+    .cctv-matrix-grid,
+    .cctv-matrix-grid.layout-split {
         grid-template-columns: 1fr;
     }
+}
+
+/* Matrix Layout Selector Toolbar */
+.layout-selector-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #080d17;
+    border: 1px solid var(--cctv-border);
+    padding: 8px 16px;
+    border-radius: 8px;
+    margin-bottom: 4px;
+}
+
+.layout-label {
+    font-family: 'Outfit', 'Inter', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--cctv-cyan);
+    letter-spacing: 0.5px;
+    margin-right: 6px;
+}
+
+.layout-btn {
+    background: rgba(15, 23, 42, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: var(--cctv-muted);
+    font-family: 'Outfit', 'Inter', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 700;
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.layout-btn:hover {
+    background: rgba(0, 240, 255, 0.12);
+    border-color: var(--cctv-cyan);
+    color: var(--cctv-cyan);
+}
+
+.layout-btn.active {
+    background: rgba(0, 240, 255, 0.2);
+    border-color: #00f0ff;
+    color: #00f0ff;
+    box-shadow: 0 0 12px rgba(0, 240, 255, 0.4);
 }
 
 .cam-feed-tile {
