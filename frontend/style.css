@@ -19,6 +19,93 @@
     padding: 0;
 }
 
+/* Color Theme Overrides */
+[data-theme="matrix"] {
+    --cctv-bg: #020804;
+    --cctv-card: #06140b;
+    --cctv-border: #143d22;
+    --cctv-cyan: #00ff66;
+    --cctv-green: #00ff66;
+}
+
+[data-theme="dark"] {
+    --cctv-bg: #000000;
+    --cctv-card: #070709;
+    --cctv-border: #1b1b26;
+    --cctv-cyan: #38bdf8;
+    --cctv-text: #f1f5f9;
+}
+
+[data-theme="crimson"] {
+    --cctv-bg: #090104;
+    --cctv-card: #140308;
+    --cctv-border: #3d0a16;
+    --cctv-cyan: #ff003c;
+    --cctv-green: #ff003c;
+}
+
+/* Theme Menu Styling */
+.theme-selector-dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+.theme-menu {
+    display: none;
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 6px;
+    background: var(--cctv-card);
+    border: 1px solid var(--cctv-border);
+    border-radius: 8px;
+    padding: 6px;
+    z-index: 100;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.8);
+    min-width: 150px;
+}
+
+.theme-selector-dropdown:hover .theme-menu,
+.theme-menu.open {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.theme-menu button {
+    background: transparent;
+    border: none;
+    color: var(--cctv-text);
+    font-family: var(--font-heading);
+    font-size: 0.76rem;
+    font-weight: 700;
+    padding: 8px 12px;
+    border-radius: 5px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    text-align: left;
+    transition: all 0.2s ease;
+}
+
+.theme-menu button:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--cctv-cyan);
+}
+
+.dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.dot-cyan { background: #00f0ff; box-shadow: 0 0 6px #00f0ff; }
+.dot-green { background: #00ff66; box-shadow: 0 0 6px #00ff66; }
+.dot-dark { background: #38bdf8; box-shadow: 0 0 6px #38bdf8; }
+.dot-red { background: #ff003c; box-shadow: 0 0 6px #ff003c; }
+
 body.cctv-theme {
     background-color: var(--cctv-bg);
     color: var(--cctv-text);

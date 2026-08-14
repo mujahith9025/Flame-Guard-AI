@@ -394,6 +394,22 @@ function switchMatrixLayout(mode) {
     }, 150);
 }
 
+// Color Theme Switcher Engine (Cyber Cyan, Matrix Green, Dark OLED, Crimson Red)
+function switchCctvTheme(themeName) {
+    if (themeName === "cyan") {
+        document.documentElement.removeAttribute("data-theme");
+    } else {
+        document.documentElement.setAttribute("data-theme", themeName);
+    }
+    localStorage.setItem("flameguard_theme", themeName);
+}
+
+// Restore saved theme on DOM Load
+const savedTheme = localStorage.getItem("flameguard_theme");
+if (savedTheme) {
+    switchCctvTheme(savedTheme);
+}
+
 // Expand Cam Feed Fullscreen Modal
 function expandCamFeed(camTitle) {
     modalCamTitle.innerText = camTitle;

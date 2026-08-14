@@ -45,6 +45,19 @@
                     <span id="audioText">ON</span>
                 </button>
 
+                <!-- Color Theme Switcher Dropdown -->
+                <div class="theme-selector-dropdown">
+                    <button class="cctv-btn-drawer" id="themeBtn">
+                        <i class="fa-solid fa-palette"></i> THEME
+                    </button>
+                    <div class="theme-menu" id="themeMenu">
+                        <button onclick="switchCctvTheme('cyan')"><span class="dot dot-cyan"></span> CYBER CYAN</button>
+                        <button onclick="switchCctvTheme('matrix')"><span class="dot dot-green"></span> MATRIX GREEN</button>
+                        <button onclick="switchCctvTheme('dark')"><span class="dot dot-dark"></span> DARK OLED</button>
+                        <button onclick="switchCctvTheme('crimson')"><span class="dot dot-red"></span> CRIMSON RED</button>
+                    </div>
+                </div>
+
                 <!-- Event Logs Drawer Trigger Button -->
                 <button class="cctv-btn-drawer" id="toggleDrawerBtn">
                     <i class="fa-solid fa-list-check"></i> EVENT LOGS
