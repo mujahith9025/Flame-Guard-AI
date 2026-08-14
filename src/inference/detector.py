@@ -182,17 +182,32 @@ class FireSmokeDetector:
                     detections.append(f_box)
                     hazards_detected.add("fire")
 
-        # Render Bounding Boxes on Frame
+        # Render High-Contrast Cyberpunk Bounding Boxes on Frame & Compute Growth Velocity
+        dt = self.curr_frame_time - self.prev_frame_time if self.prev_frame_time > 0 else 0.1
+        person_count = 0
+
         for d in detections:
             label = d["class"]
             conf = d["confidence"]
             xyxy = d["bbox"]
 
-            color = self.CLASS_COLORS.get(label, (0, 0, 255))
+            if label == "person":
+                person_count += 1
+
             x1, y1, x2, y2 = xyxy
+            curr_area = (x2 - x1) * (y2 - y1)
+            prev_area = getattr(self, "_last_hazard_area", curr_area)
+            if prev_area > 0 and dt > 0 and ("fire" in label or "smoke" in label):
+                growth_velocity = ((curr_area - prev_area) / prev_area) * 100.0 / (dt * 10.0)
+            else:
+                growth_velocity = 0.0
+            self._last_hazard_area = curr_area
+            d["growth_rate_pct_sec"] = round(growth_velocity, 1)
+
+            color = self.CLASS_COLORS.get(label, (0, 0, 255))
             cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
 
-            caption = f"{label.upper()}: {conf * 100:.1f}%"
+            caption = f"{label.upper()}: {conf * 100:.1f}% ({d['growth_rate_pct_sec']:+.1f}%/s)" if "fire" in label else f"{label.upper()}: {conf * 100:.1f}%"
             (w, h), _ = cv2.getTextSize(caption, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 2)
             cv2.rectangle(frame, (x1, y1 - h - 10), (x1 + w + 6, y1), color, -1)
             cv2.putText(
@@ -202,11 +217,11 @@ class FireSmokeDetector:
 
         # Draw FPS Overlay Badge
         if draw_fps:
-            fps_text = f"FPS: {fps:.1f}"
-            cv2.rectangle(frame, (10, 10), (130, 45), (0, 0, 0), -1)
+            fps_text = f"FPS: {fps:.1f} | OCCUPANTS: {person_count}"
+            cv2.rectangle(frame, (10, 10), (210, 45), (0, 0, 0), -1)
             cv2.putText(
                 frame, fps_text, (18, 35),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2, cv2.LINE_AA
+                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2, cv2.LINE_AA
             )
 
         # Consecutive Hazard Frames Logic
